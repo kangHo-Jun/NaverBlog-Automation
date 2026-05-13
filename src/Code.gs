@@ -2608,7 +2608,9 @@ function getImageSourceFromControlRow_(controlRow) {
   }
 
   var imageSource = String(controlRow.values[12] || '').trim();
-  return imageSource === '자동생성' ? '자동생성' : '직접업로드';
+  if (imageSource === '자동생성') return '자동생성';
+  if (imageSource === '이미지생성') return '이미지생성';
+  return '직접업로드';
 }
 
 function sanitizeFolderName_(title) {
@@ -2655,6 +2657,23 @@ function runGenerateOnly() {
     if (generatedFile) {
       Logger.log('📄 runGenerateOnly 생성 파일명: ' + generatedFile.getName());
       Logger.log('📁 runGenerateOnly 저장 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
+
+      var generatedJson = JSON.parse(generatedFile.getBlob().getDataAsString());
+      var imagenPrompts = generateImagenPrompts_(
+        generatedJson.content,
+        extractTitleFromContent_(generatedJson.content, generatedJson.baseName),
+        generatedJson.highlight_keywords || []
+      );
+
+      if (imagenPrompts) {
+        generatedJson.imagen_prompts = imagenPrompts;
+        generatedFile.setContent(JSON.stringify(generatedJson, null, 2));
+        Logger.log('💾 final_seo.json imagen_prompts 저장 완료: ' + generatedFile.getName());
+        Logger.log('🖼️ 저장된 prompt1: ' + (imagenPrompts.prompt1 || '없음'));
+        Logger.log('🖼️ 저장된 prompt2: ' + (imagenPrompts.prompt2 || '없음'));
+      } else {
+        Logger.log('⚠️ imagen_prompts 생성 실패 또는 미생성');
+      }
     } else {
       Logger.log('⚠️ runGenerateOnly 완료 후 생성된 _final_seo.json 파일을 찾지 못했습니다.');
       Logger.log('📁 확인 대상 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
@@ -2766,6 +2785,39 @@ function runPublishOnly() {
       if (placeholders.length > 0 && downloadedPhotos.length === 0) {
         throw new Error('Unsplash 이미지 저장 0건: 플레이스홀더는 존재하지만 Drive 저장에 실패했습니다. 로그의 검색어/응답 코드를 확인하세요.');
       }
+    } else if (imageSource === '이미지생성') {
+      Logger.log('🎨 이미지생성 모드: Gemini 이미지 생성 사용');
+      imageFolder = existingImageFolderId
+        ? DriveApp.getFolderById(existingImageFolderId)
+        : createImageFolderForPost_(title);
+      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+
+      var imagenPrompts = finalData.imagen_prompts || {};
+      var prompt1 = String(imagenPrompts.prompt1 || '').trim();
+      var prompt2 = String(imagenPrompts.prompt2 || '').trim();
+
+      Logger.log('🧾 imagen_prompts.prompt1: ' + (prompt1 || '없음'));
+      Logger.log('🧾 imagen_prompts.prompt2: ' + (prompt2 || '없음'));
+
+      if (!prompt1 || !prompt2) {
+        throw new Error('final_seo.json의 imagen_prompts가 비어 있습니다. runGenerateOnly()를 다시 실행해 prompt1/prompt2를 생성하세요.');
+      }
+
+      var oldPng1 = imageFolder.getFilesByName('01.png');
+      while (oldPng1.hasNext()) oldPng1.next().setTrashed(true);
+      var oldPng2 = imageFolder.getFilesByName('02.png');
+      while (oldPng2.hasNext()) oldPng2.next().setTrashed(true);
+
+      var generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), '01.png');
+      var generatedImage2 = generateImageWithGemini_(prompt2, imageFolder.getId(), '02.png');
+
+      if (!generatedImage1 || !generatedImage2) {
+        throw new Error('Gemini 이미지 생성 실패: 2장의 이미지가 모두 생성되지 않았습니다.');
+      }
+
+      Logger.log('✅ Gemini 이미지 2장 생성 완료');
+      Logger.log('🔗 01.png URL: ' + generatedImage1.driveUrl);
+      Logger.log('🔗 02.png URL: ' + generatedImage2.driveUrl);
     } else {
       Logger.log('🖼️ 직접업로드 모드: J열 폴더 이미지를 사용합니다.');
       imageFolder = existingImageFolderId
@@ -5458,6 +5510,176 @@ function STEP_B_geminiAnalysis() {
   }
 }
 
+function generateImagenPrompts_(content, title, highlightKeywords) {
+  Logger.log("🖼️ === Imagen 프롬프트 생성 시작 ===");
+
+  try {
+    var apiKey = getGeminiKey_();
+    if (!apiKey) {
+      Logger.log("❌ Gemini API 키가 설정되지 않았습니다.");
+      return null;
+    }
+
+    var contentSnippet = String(content || '').substring(0, 2000);
+    var keywordText = Array.isArray(highlightKeywords) ? highlightKeywords.join(', ') : String(highlightKeywords || '');
+    var promptText =
+      "아래 건축자재 블로그 글에서 기술적 핵심 특징 2가지를 추출하고,\n" +
+      "각각에 대한 Imagen 일러스트 프롬프트를 영어로 생성하라.\n\n" +
+      "규칙:\n" +
+      "- 스타일: Technical illustration, flat design, clean white background, no text, no people\n" +
+      "- 이미지1: 제품 구조/단면도 일러스트\n" +
+      "- 이미지2: 기술적 특징/성능 비교 인포그래픽\n" +
+      "- 회사명, 브랜드명, 지역명 포함 금지\n" +
+      "- JSON 형식으로만 출력: {\"prompt1\": \"...\", \"prompt2\": \"...\"}\n\n" +
+      "글 제목: " + String(title || '') + "\n" +
+      "강조키워드: " + keywordText + "\n" +
+      "본문: " + contentSnippet;
+
+    var payload = {
+      contents: [{
+        parts: [{ text: promptText }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json"
+      }
+    };
+
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    Logger.log("📡 Imagen 프롬프트 Gemini 응답 코드: " + responseCode);
+    Logger.log("📝 Imagen 프롬프트 Gemini 응답(앞 200자): " + responseText.substring(0, 200));
+
+    if (responseCode !== 200) {
+      Logger.log("❌ Imagen 프롬프트 생성 실패: " + responseText);
+      return null;
+    }
+
+    var responseData = JSON.parse(responseText);
+    var rawText = responseData.candidates[0].content.parts[0].text;
+    var cleanText = rawText.replace(/```json\n?/g, "").replace(/\n?```/g, "");
+    var imagenPrompts = JSON.parse(cleanText);
+
+    Logger.log("✅ Imagen 프롬프트 생성 완료");
+    Logger.log("🖼️ prompt1: " + (imagenPrompts.prompt1 || '없음'));
+    Logger.log("🖼️ prompt2: " + (imagenPrompts.prompt2 || '없음'));
+
+    return imagenPrompts;
+  } catch (error) {
+    Logger.log("❌ generateImagenPrompts_ 오류: " + error.message);
+    Logger.log("❌ generateImagenPrompts_ 스택: " + error.stack);
+    return null;
+  }
+}
+
+function getNextImagenFileName_(folder) {
+  var files = folder.getFiles();
+  var maxNumber = 0;
+
+  while (files.hasNext()) {
+    var file = files.next();
+    var match = file.getName().match(/^(\d+)\.png$/i);
+    if (!match) continue;
+    var number = parseInt(match[1], 10);
+    if (number > maxNumber) maxNumber = number;
+  }
+
+  return ('0' + (maxNumber + 1)).slice(-2) + '.png';
+}
+
+function generateImageWithGemini_(prompt, folderId, fileName) {
+  Logger.log("🎨 === Gemini 이미지 생성 시작 ===");
+
+  try {
+    var apiKey = getGeminiKey_();
+    if (!apiKey) {
+      throw new Error('Gemini API 키가 설정되지 않았습니다.');
+    }
+
+    var targetFolderId = folderId || '1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT';
+    var folder = DriveApp.getFolderById(targetFolderId);
+    var resolvedFileName = fileName || getNextImagenFileName_(folder);
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey;
+    var payload = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        responseModalities: ["IMAGE"]
+      }
+    };
+
+    Logger.log("📁 저장 대상 폴더: " + folder.getName() + " (" + targetFolderId + ")");
+    Logger.log("🖼️ 저장 파일명: " + resolvedFileName);
+    Logger.log("📝 이미지 프롬프트(앞 200자): " + String(prompt || '').substring(0, 200));
+
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    Logger.log("📡 Gemini 이미지 응답 코드: " + responseCode);
+    Logger.log("📝 Gemini 이미지 응답(앞 200자): " + responseText.substring(0, 200));
+
+    if (responseCode !== 200) {
+      Logger.log("❌ Gemini 이미지 생성 실패: " + responseText);
+      return null;
+    }
+
+    var responseData = JSON.parse(responseText);
+    var parts = (((responseData || {}).candidates || [])[0] || {}).content
+      ? responseData.candidates[0].content.parts || []
+      : [];
+    var imagePart = null;
+
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].inlineData && parts[i].inlineData.data) {
+        imagePart = parts[i];
+        break;
+      }
+    }
+
+    if (!imagePart) {
+      Logger.log("❌ Gemini 이미지 데이터가 응답에 없습니다.");
+      return null;
+    }
+
+    var mimeType = imagePart.inlineData.mimeType || 'image/png';
+    var imageBytes = Utilities.base64Decode(imagePart.inlineData.data);
+    var blob = Utilities.newBlob(imageBytes, mimeType, resolvedFileName);
+    var savedFile = folder.createFile(blob);
+    savedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var driveViewUrl = "https://drive.google.com/uc?export=view&id=" + savedFile.getId();
+    Logger.log("✅ Gemini 이미지 저장 성공: " + resolvedFileName + " / " + savedFile.getId());
+    Logger.log("🔗 Gemini 이미지 URL: " + driveViewUrl);
+
+    return {
+      fileId: savedFile.getId(),
+      fileName: resolvedFileName,
+      mimeType: mimeType,
+      driveUrl: driveViewUrl,
+      responseCode: responseCode
+    };
+  } catch (error) {
+    Logger.log("❌ generateImageWithGemini_ 오류: " + error.message);
+    Logger.log("❌ generateImageWithGemini_ 스택: " + error.stack);
+    return null;
+  }
+}
+
 /**
  * [신규] v7 HTML 전체 파이프라인 - 전처리부터 HTML 저장까지
  */
@@ -6122,6 +6344,43 @@ function testUnsplashDownload() {
   } catch (error) {
     Logger.log('❌ testUnsplashDownload 오류: ' + error.message);
     Logger.log('❌ testUnsplashDownload 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function testGeminiImageGen() {
+  var testFolderId = '1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT';
+  var testPrompt = 'Technical illustration, flat design, gypsum board cross-section showing moisture absorption layers, clean white background, no text, no people';
+
+  try {
+    Logger.log('🧪 Gemini 이미지 생성 테스트 시작');
+    Logger.log('📁 저장 대상 폴더 ID: ' + testFolderId);
+    var result = generateImageWithGemini_(testPrompt, testFolderId);
+
+    if (!result) {
+      Logger.log('❌ testGeminiImageGen 실패: 결과 객체가 없습니다.');
+      return {
+        success: false,
+        error: '이미지 생성 결과 없음'
+      };
+    }
+
+    Logger.log('✅ testGeminiImageGen 성공');
+    Logger.log('🔗 결과 URL: ' + result.driveUrl);
+    return {
+      success: true,
+      fileId: result.fileId,
+      fileName: result.fileName,
+      driveUrl: result.driveUrl,
+      responseCode: result.responseCode
+    };
+  } catch (error) {
+    Logger.log('❌ testGeminiImageGen 오류: ' + error.message);
+    Logger.log('❌ testGeminiImageGen 스택: ' + error.stack);
     return {
       success: false,
       error: error.message,
