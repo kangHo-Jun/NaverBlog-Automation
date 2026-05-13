@@ -10,17 +10,10 @@
 const PROP_KEYS = {
   OPENAI_API_KEY: 'OPENAI_API_KEY',
   PPLX_API_KEY: 'PPLX_API_KEY',
-  ANTHROPIC_API_KEY: 'ANTHROPIC_API_KEY',
-  GEMINI_API_KEY: 'GEMINI_API_KEY'
+  CLAUDE_API_KEY: 'CLAUDE_API_KEY',
+  GEMINI_API_KEY: 'GEMINI_API_KEY',
+  UNSPLASH_ACCESS_KEY: 'UNSPLASH_ACCESS_KEY'
 };
-
-// **⚠️주의: 보안에 취약하므로 아래에 직접 입력한 키는 사용 후 반드시 삭제하세요.**
-// Perplexity AI 키를 여기에 직접 입력합니다.
-const HARDCODED_PPLX_KEY = "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";
-// OpenAI 키를 여기에 직접 입력합니다.
-const HARDCODED_OPENAI_KEY = "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";
-// Claude(Anthropic) 키를 여기에 직접 입력합니다.
-const HARDCODED_ANTHROPIC_KEY = "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";
 
 // Spreadsheet 기본 설정
 const SHEET_NAME_MAIN = '시트1';
@@ -65,12 +58,10 @@ function toast_(msg) {
 }
 
 /**
- * 저장된 Anthropic API 키를 가져옵니다.
+ * 저장된 Claude API 키를 가져옵니다.
  */
-function getAnthropicKey_() {
-  var key = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ANTHROPIC_API_KEY);
-  if (!key && HARDCODED_ANTHROPIC_KEY) return HARDCODED_ANTHROPIC_KEY;
-  return key || '';
+function getClaudeKey_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.CLAUDE_API_KEY) || '';
 }
 
 /**
@@ -78,6 +69,13 @@ function getAnthropicKey_() {
  */
 function getGeminiKey_() {
   return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.GEMINI_API_KEY) || '';
+}
+
+/**
+ * 저장된 Unsplash API 키를 가져옵니다.
+ */
+function getUnsplashKey_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.UNSPLASH_ACCESS_KEY) || '';
 }
 
 /**
@@ -1146,41 +1144,56 @@ function generateStyleDescription(styleData) {
 function generateTemplatePhotoGuide(contentOutline, seoKeywords, photoGuideType) {
   var photoGuides = [];
   var photoIndex = 1;
+  var genericOutlineScenes = [
+    'construction worker installing drywall',
+    'modern interior wall finishing detail',
+    'natural gypsum board close-up texture',
+    'bright living room renovation progress',
+    'worker measuring wall alignment indoors',
+    'clean minimalist interior material sample'
+  ];
+  var genericKeywordScenes = [
+    'indoor air pollution symptoms family',
+    'eco-friendly building material texture close-up',
+    'home renovation tools and materials setup',
+    'before and after interior wall comparison',
+    'dust-free construction workspace detail',
+    'healthy modern home interior atmosphere'
+  ];
   
   // 템플릿별 사진 유형 분석
   var photoTypes = String(photoGuideType || '').split(',');
   
   // 기본 사진 추가
   if (photoTypes.indexOf('제품외관') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": 제품 전체 외관 및 패키징]");
+    photoGuides.push("[사진 " + photoIndex + ": natural gypsum board close-up texture]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('나란히비교') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": 제품 간 나란히 비교 모습]");
+    photoGuides.push("[사진 " + photoIndex + ": before and after wall renovation comparison]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('도구준비') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": 필요한 도구 및 준비물]");
+    photoGuides.push("[사진 " + photoIndex + ": required tools and materials setup]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('트렌드사례') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": 최신 트렌드 적용 사례]");
+    photoGuides.push("[사진 " + photoIndex + ": modern interior design trend example]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('문제상황') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": 문제가 발생한 상황]");
+    photoGuides.push("[사진 " + photoIndex + ": indoor air pollution symptoms family]");
     photoIndex++;
   }
   
   // 콘텐츠 아웃라인 기반 사진 추가
   for (var i = 0; i < contentOutline.length && photoIndex <= 10; i++) {
-    var section = contentOutline[i];
-    var photoDesc = section.replace(/[^가-힣a-zA-Z0-9\s]/g, '') + " 관련 상세 모습";
-    photoGuides.push("[사진 " + photoIndex + ": " + photoDesc + "]");
+    var outlineScene = genericOutlineScenes[i % genericOutlineScenes.length];
+    photoGuides.push("[사진 " + photoIndex + ": " + outlineScene + "]");
     photoIndex++;
   }
   
@@ -1188,7 +1201,8 @@ function generateTemplatePhotoGuide(contentOutline, seoKeywords, photoGuideType)
   for (var j = 0; j < seoKeywords.length && photoIndex <= 12; j++) {
     var keyword = seoKeywords[j];
     if (keyword.length > 2) {
-      photoGuides.push("[사진 " + photoIndex + ": " + keyword + " 특징을 보여주는 사진]");
+      var keywordScene = genericKeywordScenes[j % genericKeywordScenes.length];
+      photoGuides.push("[사진 " + photoIndex + ": " + keywordScene + "]");
       photoIndex++;
     }
   }
@@ -1248,8 +1262,27 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '스타일 가이드라인:\n' + styleDescription + '\n' +
                '사진 삽입 원칙:\n' +
                '- 템플릿 특화 사진: ' + (templateInfo.photo_guide_type || '일반 사진') + '\n' +
-               '- [사진 X: 구체적인 설명] 형태로 정확히 표기\n' +
+               '- [사진 X: English description] 형태로 정확히 표기\n' +
+               '- 사진 플레이스홀더 설명은 반드시 영어로 작성하라\n' +
+               '- 예) [사진1: slim window frame close-up]\n' +
+               '- 예) [사진2: modern interior living room window view]\n' +
+               '- 예) [사진3: before and after window replacement comparison]\n' +
                '- 전체 글에 최소 8-12개의 사진 플레이스홀더 포함\n\n' +
+               '오프닝 원칙 (매우 중요):\n' +
+               '- 첫 문단은 반드시 아래 중 하나로 시작하라:\n' +
+               '- 독자의 고통을 찌르는 질문\n' +
+               '  예) "창호 바꾸고 나서 \'왜 이걸 진작에 안 했지?\' 하신 분 계세요?"\n' +
+               '- 충격적인 숫자나 사실\n' +
+               '  예) "7mm. 이 차이 때문에 수억짜리 조망이 반토막 납니다."\n' +
+               '- 공감 유발 상황 묘사\n' +
+               '  예) "새벽에 베란다 나갈 때마다 발에 걸리는 그 돌출 부분..."\n' +
+               '- 절대 배경 설명이나 주제 소개로 시작하지 마라\n\n' +
+               '인간적 문체 원칙:\n' +
+               '- 짧은 문장(10자 이하)과 긴 문장(40자 이상) 혼합\n' +
+               '- 독자에게 직접 말하는 2인칭 사용 "여러분", "~하셨나요?"\n' +
+               '- 전문가 경험담 1인칭 삽입 "제가 현장에서 보면..."\n' +
+               '- 반전 표현 사용 "그런데 말입니다", "사실은..."\n' +
+               '- 구어체 자연 삽입 "솔직히", "딱 잘라 말하면"\n\n' +
                '**제목 생성 원칙 (매우 중요):**\n' +
                '- 글 맨 앞에 # 제목을 반드시 포함하세요\n' +
                '- 제목 길이: 25-40자 (한글 기준)\n' +
@@ -1257,6 +1290,12 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '- 클릭을 유도하되 과장하지 않고 실용적으로\n' +
                '- SEO 키워드를 자연스럽게 포함\n' +
                '- 제목 바로 아래 두 번째 줄에 부제목 추가 (제목과 어울리는 한 줄 설명)\n\n' +
+               '절대 금지 표현:\n' +
+               '- "~에 대해 알아보겠습니다"\n' +
+               '- "~의 중요성은 두말할 필요가 없습니다"\n' +
+               '- "결론적으로", "이처럼", "따라서"로 문단 시작\n' +
+               '- 모든 소제목을 명사형으로 끝내기\n' +
+               '- 숫자 나열 구조 남용 (3가지, 5가지 등)\n\n' +
                '행동 유도:\n' +
                '- CTA 스타일: ' + (templateInfo.cta_style || '문의 유도') + '\n' +
                '- SEO 전략: ' + (templateInfo.seo_strategy || '키워드 중심');
@@ -1314,7 +1353,7 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '4. **강조 키워드 중심**: 위의 강조 키워드가 글의 핵심 메시지가 되도록\n' +
              '5. **템플릿 구조**: ' + (templateInfo.content_structure || '도입-본문-결론') + ' 형태로 구성\n' +
              '6. **SEO 최적화**: SEO 키워드들을 자연스럽게 배치 (특히 제목에 포함)\n' +
-             '7. **사진 플레이스홀더**: 각 섹션에 관련성 높은 사진 반드시 포함\n' +
+             '7. **사진 플레이스홀더**: 각 섹션에 관련성 높은 사진 반드시 포함하고 설명은 영어로 작성\n' +
              '8. **차별화된 관점**: 강조 키워드를 중심으로 한 독특한 시각 제시\n' +
              '9. **행동 유도**: ' + (templateInfo.cta_style || '문의 유도') + ' 방식으로 마무리\n\n' +
              '## 🚫 절대 금지사항\n' +
@@ -1323,6 +1362,11 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '- 벤치마킹 자료의 단순 복사나 패러프레이즈\n' +
              '- 강조 키워드 누락 또는 부차적 처리\n' +
              '- 템플릿 가이드라인 무시\n' +
+             '- "~에 대해 알아보겠습니다" 같은 AI식 서두 사용\n' +
+             '- "~의 중요성은 두말할 필요가 없습니다" 같은 상투 표현 사용\n' +
+             '- "결론적으로", "이처럼", "따라서"로 문단 시작\n' +
+             '- 모든 소제목을 명사형으로 끝내기\n' +
+             '- 숫자 나열 구조 남용 (3가지, 5가지 등)\n' +
              '- 사진 플레이스홀더 누락\n\n' +
              '**출력 형식:**\n' +
              '# [매력적인 제목 25-40자]\n' +
@@ -1351,6 +1395,7 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
  * 업로드 시간 순으로 정렬된 전처리 파일들 가져오기 (한 개만)
  */
 function getNextPreprocessFileToSEO() {
+  Logger.log('🔎 getNextPreprocessFileToSEO 탐색 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
   var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
   
   var availableFiles = [];
@@ -1399,6 +1444,50 @@ function getNextPreprocessFileToSEO() {
   };
 }
 
+function debugPreprocessFiles() {
+  Logger.log('🔍 === preprocess 파일 디버그 ===');
+  Logger.log('📁 탐색 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
+
+  try {
+    var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
+    var files = jsonOutputFolder.getFiles();
+    var preprocessFiles = [];
+
+    while (files.hasNext()) {
+      var file = files.next();
+      var name = file.getName();
+
+      if (!/\_preprocess\.json$/i.test(name)) continue;
+
+      preprocessFiles.push({
+        name: name,
+        updatedAt: file.getLastUpdated().getTime()
+      });
+    }
+
+    if (preprocessFiles.length === 0) {
+      Logger.log('⚠️ _preprocess.json 파일이 없습니다.');
+      return [];
+    }
+
+    preprocessFiles.sort(function(a, b) {
+      return a.updatedAt - b.updatedAt;
+    });
+
+    Logger.log('📋 _preprocess.json 파일 목록: ' + preprocessFiles.length + '개');
+    for (var i = 0; i < preprocessFiles.length; i++) {
+      var item = preprocessFiles[i];
+      Logger.log('  ' + (i + 1) + '. ' + item.name + ' (' + new Date(item.updatedAt).toLocaleString() + ')');
+    }
+
+    return preprocessFiles;
+  } catch (error) {
+    Logger.log('❌ debugPreprocessFiles 오류: ' + error.message);
+    Logger.log('❌ debugPreprocessFiles 스택: ' + error.stack);
+    return [];
+  }
+}
+
 /**
  * 수정된 SEO 처리 함수 (완전 재구성 적용)
  */
@@ -1423,7 +1512,7 @@ function processNextSEOFile() {
     
     var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
     var settings = loadRunSettings();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     if (!settings) {
       Logger.log("❌ 실행 설정을 가져올 수 없습니다.");
@@ -2468,7 +2557,7 @@ function getPublishControlRow_(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
 
   for (var i = 0; i < values.length; i++) {
     var publishMode = String(values[i][5] || '').trim();
@@ -2489,6 +2578,16 @@ function updatePublishStatus_(sheet, rowIndex, status) {
   sheet.getRange(rowIndex, 7).setValue(status);
 }
 
+function ensurePublishControlHeaders_(sheet) {
+  if (!sheet) return;
+
+  var imageSourceHeader = String(sheet.getRange(1, 13).getValue() || '').trim();
+  if (imageSourceHeader !== '이미지소스') {
+    sheet.getRange(1, 13).setValue('이미지소스');
+    Logger.log('🧩 시트1 M1 헤더를 "이미지소스"로 설정했습니다.');
+  }
+}
+
 function getImageFolderIdFromControlRow_(controlRow) {
   if (!controlRow || !controlRow.values) {
     return '';
@@ -2501,6 +2600,15 @@ function getImageFolderIdFromControlRow_(controlRow) {
 
   var urlMatch = folderRef.match(/[-\w]{25,}/);
   return urlMatch ? urlMatch[0] : folderRef;
+}
+
+function getImageSourceFromControlRow_(controlRow) {
+  if (!controlRow || !controlRow.values) {
+    return '직접업로드';
+  }
+
+  var imageSource = String(controlRow.values[12] || '').trim();
+  return imageSource === '자동생성' ? '자동생성' : '직접업로드';
 }
 
 function sanitizeFolderName_(title) {
@@ -2579,6 +2687,8 @@ function runPublishOnly() {
       throw new Error('시트1을 찾을 수 없습니다. Sheet ID를 확인하세요.');
     }
 
+    ensurePublishControlHeaders_(sheet);
+
     var controlRow = getPublishControlRow_(sheet);
     if (!controlRow) {
       Logger.log('⛔ 발행 가능한 행 없음 (F열 미설정 또는 L열 URL 이미 존재 — 중복 발행 차단)');
@@ -2590,6 +2700,7 @@ function runPublishOnly() {
     var isApproved = controlRow.values[7] === true;
     var scheduleRaw = controlRow.values[8];
     var existingImageFolderId = getImageFolderIdFromControlRow_(controlRow);
+    var imageSource = getImageSourceFromControlRow_(controlRow);
 
     // I열 예약시간 파싱 → ISO 8601 변환
     var scheduledTime = null;
@@ -2603,6 +2714,7 @@ function runPublishOnly() {
     Logger.log('📋 발행 제어 행: ' + controlRow.rowIndex + '행');
     Logger.log('📢 발행 모드: ' + publishMode);
     Logger.log('☑️ 승인 체크: ' + (isApproved ? 'true' : 'false'));
+    Logger.log('🖼️ 이미지 소스: ' + imageSource);
     Logger.log('🖼️ 기존 이미지 폴더 ID: ' + (existingImageFolderId || '없음'));
     Logger.log('🕐 I열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
     Logger.log('🕐 계산된 예약시간 (ISO 8601): ' + (scheduledTime || '즉시 발행'));
@@ -2625,20 +2737,47 @@ function runPublishOnly() {
 
     var finalData = JSON.parse(seoFile.getBlob().getDataAsString());
     var title = extractTitleFromContent_(finalData.content, finalData.baseName);
-    var imageFolder = existingImageFolderId
-      ? DriveApp.getFolderById(existingImageFolderId)
-      : createImageFolderForPost_(title);
     var photoGuideText = buildPhotoGuideText_(finalData);
+    var placeholders = extractPhotoPlaceholders_(finalData.content);
+    var imageFolder = null;
     var mappedContent;
     var htmlContent;
     var labels;
     var postUrl;
+    var downloadedPhotos = [];
+
+    Logger.log('🧾 finalData.photo_guides 수: ' + ((finalData.photo_guides || []).length));
+    Logger.log('🧾 본문 플레이스홀더 수: ' + placeholders.length);
+    if (placeholders.length > 0) {
+      Logger.log('🧾 본문 플레이스홀더 목록: ' + placeholders.join(' | '));
+    } else {
+      Logger.log('⚠️ 본문에 [사진N: ...] 플레이스홀더가 없습니다.');
+    }
 
     Logger.log("2️⃣ 이미지 폴더 생성 및 시트 기록");
-    updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+    if (imageSource === '자동생성') {
+      Logger.log('🧠 자동생성 모드: Unsplash 이미지 검색을 사용합니다.');
+      imageFolder = existingImageFolderId
+        ? DriveApp.getFolderById(existingImageFolderId)
+        : createImageFolderForPost_(title);
+      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+      downloadedPhotos = downloadUnsplashPhotosToFolder_(finalData.content, finalData, title, imageFolder);
+      Logger.log('🧾 Unsplash 저장 결과 수: ' + downloadedPhotos.length);
+      if (placeholders.length > 0 && downloadedPhotos.length === 0) {
+        throw new Error('Unsplash 이미지 저장 0건: 플레이스홀더는 존재하지만 Drive 저장에 실패했습니다. 로그의 검색어/응답 코드를 확인하세요.');
+      }
+    } else {
+      Logger.log('🖼️ 직접업로드 모드: J열 폴더 이미지를 사용합니다.');
+      imageFolder = existingImageFolderId
+        ? DriveApp.getFolderById(existingImageFolderId)
+        : createImageFolderForPost_(title);
+      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+    }
 
     Logger.log("3️⃣ 사진 매핑");
-    mappedContent = mapPhotosToPlaceholders(finalData.content, imageFolder.getId());
+    mappedContent = imageSource === '자동생성'
+      ? mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title)
+      : mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title);
 
     Logger.log("4️⃣ Blogger HTML 변환");
     htmlContent = convertToBloggerHTML(mappedContent, title);
@@ -2810,13 +2949,13 @@ function checkSystemStatusUpdated() {
     var highlightKeywords = getHighlightKeywordsFromA2();
     var styleData = getStyleDataFromSheet();
     var templateData = getSelectedTemplate();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     Logger.log("\n🔑 SEO 키워드: " + keywords.length + "개 (" + keywords.join(', ') + ")");
     Logger.log("💎 강조 키워드: " + highlightKeywords.length + "개 (" + highlightKeywords.join(', ') + ")");
     Logger.log("📊 스타일 번호: " + (styleData ? styleData.number : '없음'));
     Logger.log("📄 템플릿: " + (templateData ? templateData.name : '없음'));
-    Logger.log("🔐 Anthropic API 키: " + (apiKey ? '설정됨' : '미설정'));
+    Logger.log("🔐 Claude API 키: " + (apiKey ? '설정됨' : '미설정'));
     
     Logger.log("✅ 시스템 상태 확인 완료");
     
@@ -3012,12 +3151,12 @@ function resetAllProcessedFiles() {
  */
 
 /**
- * Anthropic API 키를 스크립트 속성에 저장합니다.
+ * Claude API 키를 스크립트 속성에 저장합니다.
  */
 function STEP5_configOnce_setAnthropicKey(KEY) {
-  PropertiesService.getScriptProperties().setProperty(PROP_KEYS.ANTHROPIC_API_KEY, KEY);
-  toast_('Anthropic API 키 저장 완료');
-  Logger.log('✅ Anthropic API 키 저장 완료');
+  PropertiesService.getScriptProperties().setProperty(PROP_KEYS.CLAUDE_API_KEY, KEY);
+  toast_('Claude API 키 저장 완료');
+  Logger.log('✅ Claude API 키 저장 완료');
 }
 
 /**
@@ -3031,6 +3170,19 @@ function STEP5_configOnce_setGeminiKey(KEY) {
   PropertiesService.getScriptProperties().setProperty(PROP_KEYS.GEMINI_API_KEY, KEY);
   toast_('Gemini API 키 저장 완료');
   Logger.log('✅ Gemini API 키 저장 완료');
+}
+
+/**
+ * Unsplash API 키를 스크립트 속성에 저장합니다.
+ */
+function STEP5_configOnce_setUnsplashKey(KEY) {
+  if (!KEY || KEY.toString().trim() === '') {
+    Logger.log('❌ 오류: Unsplash API 키 값이 입력되지 않았습니다.');
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperty(PROP_KEYS.UNSPLASH_ACCESS_KEY, KEY);
+  toast_('Unsplash API 키 저장 완료');
+  Logger.log('✅ Unsplash API 키 저장 완료');
 }
 
 /**
@@ -3507,14 +3659,14 @@ function checkSystemStatusMemory() {
     var highlightKeywords = getHighlightKeywordsFromA2();
     var styleData = getStyleDataFromSheet();
     var templateData = getSelectedTemplate();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     Logger.log("\n🔑 설정 상태:");
     Logger.log("  SEO 키워드: " + (keywords.length > 0 ? "✓ " + keywords.length + "개" : "✗ 미설정"));
     Logger.log("  강조 키워드: " + (highlightKeywords.length > 0 ? "✓ " + highlightKeywords.length + "개" : "✗ 미설정"));
     Logger.log("  스타일: " + (styleData ? "✓ " + styleData.number + "번" : "✗ 미설정"));
     Logger.log("  템플릿: " + (templateData ? "✓ " + templateData.name : "✗ 미설정"));
-    Logger.log("  API 키: " + (apiKey ? "✓ 설정됨" : "✗ 미설정"));
+    Logger.log("  Claude API 키: " + (apiKey ? "✓ 설정됨" : "✗ 미설정"));
     
     Logger.log("\n💡 권장 실행 방법:");
     if (pendingCount > 0) {
@@ -4054,6 +4206,72 @@ function clearProcessedHistory() {
 }
 
 /**
+ * baseName 기준으로 특정 파일의 처리 이력만 삭제
+ */
+function clearProcessedRecordByBaseName(baseName) {
+  Logger.log("🧹 === 특정 파일 처리 이력 삭제 ===");
+  Logger.log("📁 대상 baseName: " + baseName);
+
+  try {
+    if (!baseName || String(baseName).trim() === '') {
+      Logger.log("❌ baseName이 비어 있습니다.");
+      return false;
+    }
+
+    var normalizedBaseName = String(baseName).trim();
+    var inputFolder = DriveApp.getFolderById(CONFIG.INPUT_FOLDER_ID);
+    var files = inputFolder.getFiles();
+    var matchedFileId = '';
+    var matchedFileName = '';
+
+    while (files.hasNext()) {
+      var file = files.next();
+      var fileName = file.getName();
+
+      if (!/\.(html?|mhtml|mht|txt|pdf)(의 사본)?$/i.test(fileName)) continue;
+
+      var currentBaseName = fileName
+        .replace(/의 사본$/i, '')
+        .replace(/\.[^.]+$/, '');
+
+      if (currentBaseName === normalizedBaseName) {
+        matchedFileId = file.getId();
+        matchedFileName = fileName;
+        break;
+      }
+    }
+
+    if (!matchedFileId) {
+      Logger.log("⚠️ 입력 폴더에서 baseName과 일치하는 파일을 찾지 못했습니다.");
+      return false;
+    }
+
+    var propertyKey = 'processed_' + matchedFileId;
+    var props = PropertiesService.getScriptProperties();
+    var existingRecord = props.getProperty(propertyKey);
+
+    Logger.log("🆔 매칭 파일 ID: " + matchedFileId);
+    Logger.log("📄 매칭 파일명: " + matchedFileName);
+    Logger.log("🔑 삭제 대상 속성 키: " + propertyKey);
+
+    if (!existingRecord) {
+      Logger.log("⚠️ 삭제할 처리 이력이 없습니다.");
+      return false;
+    }
+
+    props.deleteProperty(propertyKey);
+    Logger.log("✅ 처리 이력 삭제 완료: " + matchedFileName);
+    toast_("특정 파일 처리 이력 삭제 완료");
+    return true;
+
+  } catch (error) {
+    Logger.log("❌ clearProcessedRecordByBaseName 오류: " + error.message);
+    Logger.log("❌ clearProcessedRecordByBaseName 스택: " + error.stack);
+    return false;
+  }
+}
+
+/**
  * 메모리 기반 처리 (이력 저장 버전) ✨
  */
 function runCompleteProcessInMemory() {
@@ -4112,7 +4330,7 @@ function runCompleteProcessInMemory() {
     
     // 3. 설정 가져오기
     var settings = loadRunSettings();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     if (!settings) {
       Logger.log("❌ 실행 설정을 가져올 수 없습니다.");
@@ -4517,7 +4735,7 @@ function processAndDeleteFile() {
     
     // 4. 설정 가져오기
     var settings = loadRunSettings();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     if (!settings) {
       Logger.log("❌ 실행 설정을 가져올 수 없습니다.");
@@ -5077,7 +5295,7 @@ function processNextSEOFile_V7HTML(geminiContext) {
     var highlightKeywords = getHighlightKeywordsFromA2();
     var templateData = getSelectedTemplate();
     var styleData = getStyleDataFromSheet();
-    var apiKey = getAnthropicKey_();
+    var apiKey = getClaudeKey_();
     
     if (seoKeywords.length === 0 || !apiKey) {
       Logger.log("❌ SEO 키워드 또는 API 키가 없습니다.");
@@ -5304,12 +5522,153 @@ function runV7HTMLPipeline() {
 }
 
 /**
- * [임시] Gemini API 키 설정 유틸리티 (사용 후 삭제 권장)
- * 주의: "AIza여기에실제키입력" 부분을 실제 발급받은 API 키로 교체 후 한 번만 실행하세요.
+ * [임시] Gemini API 키 설정 유틸리티
+ * 하드코딩 키는 사용하지 않습니다. KEY를 직접 전달해서 실행하세요.
  */
-function tempSetGeminiKey() {
-  PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', 'AIzaSyClek8NG2vhVfvbA8M5Wm1pQnei9XDN7gU');
+function tempSetGeminiKey(KEY) {
+  if (!KEY || KEY.toString().trim() === '') {
+    Logger.log('❌ 오류: Gemini API 키 값이 입력되지 않았습니다.');
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', KEY);
   Logger.log('완료: GEMINI_API_KEY가 PropertiesService에 등록되었습니다.');
+}
+
+/**
+ * Gemini API 연결 간단 테스트
+ */
+function testGeminiAPI() {
+  try {
+    Logger.log("🧪 === Gemini API 테스트 시작 ===");
+
+    var apiKey = getGeminiKey_();
+    if (!apiKey) {
+      Logger.log("❌ Gemini API 키가 설정되지 않았습니다.");
+      return {
+        success: false,
+        error: 'Gemini API 키가 설정되지 않았습니다.'
+      };
+    }
+
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+    var payload = {
+      contents: [{
+        parts: [{
+          text: "안녕하세요. 연결 테스트입니다. 20자 이내로 '정상 연결'이라고만 답하세요."
+        }]
+      }],
+      generationConfig: {
+        temperature: 0
+      }
+    };
+
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    Logger.log("📡 응답 코드: " + responseCode);
+    Logger.log("📝 응답 내용 (앞 100자): " + responseText.substring(0, 100));
+
+    if (responseCode !== 200) {
+      Logger.log("❌ Gemini API 오류 전체: " + responseText);
+      return {
+        success: false,
+        responseCode: responseCode,
+        responsePreview: responseText.substring(0, 100),
+        error: responseText
+      };
+    }
+
+    Logger.log("✅ Gemini API 테스트 성공");
+    return {
+      success: true,
+      responseCode: responseCode,
+      responsePreview: responseText.substring(0, 100)
+    };
+  } catch (error) {
+    Logger.log("❌ testGeminiAPI 실행 오류: " + error.message);
+    Logger.log("❌ testGeminiAPI 스택: " + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+/**
+ * Claude API 연결 간단 테스트
+ */
+function testClaudeAPI() {
+  try {
+    Logger.log("🧪 === Claude API 테스트 시작 ===");
+
+    var apiKey = getClaudeKey_();
+    if (!apiKey) {
+      Logger.log("❌ Claude API 키가 설정되지 않았습니다.");
+      return {
+        success: false,
+        error: 'Claude API 키가 설정되지 않았습니다.'
+      };
+    }
+
+    var payload = {
+      model: CLAUDE_DEFAULTS.MODEL,
+      max_tokens: 64,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: '안녕하세요. 연결 테스트입니다. 20자 이내로 정상 연결이라고만 답하세요.'
+      }]
+    };
+
+    var response = UrlFetchApp.fetch(CLAUDE_DEFAULTS.ENDPOINT, {
+      method: 'post',
+      contentType: 'application/json; charset=utf-8',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': CLAUDE_DEFAULTS.VERSION
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    Logger.log("📡 응답 코드: " + responseCode);
+    Logger.log("📝 응답 내용 (앞 100자): " + responseText.substring(0, 100));
+
+    if (responseCode < 200 || responseCode >= 300) {
+      Logger.log("❌ Claude API 테스트 실패");
+      Logger.log("❌ Claude API 오류 전체: " + responseText);
+      return {
+        success: false,
+        responseCode: responseCode,
+        responsePreview: responseText.substring(0, 100),
+        error: responseText
+      };
+    }
+
+    Logger.log("✅ Claude API 테스트 성공");
+    return {
+      success: true,
+      responseCode: responseCode,
+      responsePreview: responseText.substring(0, 100)
+    };
+  } catch (error) {
+    Logger.log("❌ testClaudeAPI 실행 오류: " + error.message);
+    Logger.log("❌ testClaudeAPI 스택: " + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
 }
 
 /**
@@ -5323,16 +5682,19 @@ function tempSetGeminiKey() {
  * 
  * @param {string} docContent - [사진1], [사진2] 등의 홀더가 포함된 글 본문 텍스트
  * @param {string} imageFolderId - 사진(01.jpg, 02.jpg 등)이 저장된 Google Drive 폴더 ID
+ * @param {Object=} finalData - SEO 결과 데이터
+ * @param {string=} title - 글 제목
  * @return {string} 사진 URL로 교체된 본문 텍스트
  */
-function mapPhotosToPlaceholders(docContent, imageFolderId) {
+function mapPhotosToPlaceholders(docContent, imageFolderId, finalData, title) {
   if (!docContent) return "";
-  if (!imageFolderId) {
-    Logger.log("❌ 오류: imageFolderId가 제공되지 않았습니다.");
-    return docContent;
-  }
 
   try {
+    if (!imageFolderId) {
+      Logger.log("⚠️ imageFolderId가 없어 Unsplash 자동 검색으로 전환합니다.");
+      return mapUnsplashPhotosToPlaceholders_(docContent, finalData, title);
+    }
+
     // 1. Drive 폴더 접근
     var folder = DriveApp.getFolderById(imageFolderId);
     var files = folder.getFiles();
@@ -5355,8 +5717,8 @@ function mapPhotosToPlaceholders(docContent, imageFolderId) {
     });
 
     if (photoFiles.length === 0) {
-      Logger.log("⚠️ 경고: 폴더에 매핑할 사진 파일이 없습니다. (01.jpg 형식이 필요합니다)");
-      return docContent;
+      Logger.log("⚠️ 경고: 폴더에 매핑할 사진 파일이 없습니다. Unsplash 자동 검색으로 전환합니다.");
+      return mapUnsplashPhotosToPlaceholders_(docContent, finalData, title);
     }
 
     // 4. 본문 내 홀더 추출 및 교체
@@ -5385,7 +5747,7 @@ function mapPhotosToPlaceholders(docContent, imageFolderId) {
           file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
           
           // 직링크 URL 생성 (Google Drive 고유 ID 활용)
-          var photoUrl = "https://drive.google.com/uc?id=" + file.getId() + "&export=view";
+          var photoUrl = "https://drive.google.com/uc?export=view&id=" + file.getId();
           
           // 본문 내 모든 해당 홀더 교체
           var escapedHolder = holder.replace(/[\[\]]/g, "\\$&"); // [ ] 특수문자 탈출 처리
@@ -5397,7 +5759,16 @@ function mapPhotosToPlaceholders(docContent, imageFolderId) {
           unmappedHolders.push(holder);
         }
       } else {
-        unmappedHolders.push(holder);
+        var fallbackResult = searchUnsplashPhoto_(buildUnsplashKeywordFromHolder_(holder, finalData, title));
+        if (fallbackResult.imageUrl) {
+          var escapedHolder = holder.replace(/[\[\]]/g, "\\$&");
+          var regex = new RegExp(escapedHolder, "g");
+          resultBody = resultBody.replace(regex, fallbackResult.imageUrl);
+          mappedCount++;
+          Logger.log("🧠 폴더 사진 부족 → Unsplash 대체 적용: " + fallbackResult.creditText);
+        } else {
+          unmappedHolders.push(holder);
+        }
       }
     });
 
@@ -5419,6 +5790,7 @@ function mapPhotosToPlaceholders(docContent, imageFolderId) {
 
   } catch (error) {
     Logger.log("❌ 오류 발생 (mapPhotosToPlaceholders): " + error.message);
+    Logger.log("❌ mapPhotosToPlaceholders 스택: " + error.stack);
     return docContent; // 실패 시 원본 본문 반환
   }
 }
@@ -5440,6 +5812,322 @@ function testMapPhotosToPlaceholders() {
   Logger.log("🧪 사진 매핑 테스트 시작...");
   var result = mapPhotosToPlaceholders(dummyContent, testFolderId);
   Logger.log("📝 결과 본문 (미리보기 500자):\n" + result.substring(0, 500));
+}
+
+var BUILDING_KEYWORD_MAP = {
+  'gypsum': 'drywall installation gypsum board',
+  'insulation': 'building insulation material',
+  'window': 'modern window frame interior',
+  'air': 'indoor air quality healthy home',
+  'eco': 'eco friendly building material',
+  'construction': 'home renovation construction worker',
+  'wall': 'interior wall construction',
+  'renovation': 'home renovation interior',
+  'material': 'construction building material',
+  'indoor': 'healthy indoor living space'
+};
+
+function extractEnglishPlaceholderKeyword_(holder) {
+  var descriptionMatch = String(holder || '').match(/:\s*([^\]]+)/);
+  var description = descriptionMatch ? descriptionMatch[1].trim() : '';
+
+  return description
+    .replace(/[^a-zA-Z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function buildUnsplashKeywordFromHolder_(holder, finalData, title) {
+  var englishKeyword = extractEnglishPlaceholderKeyword_(holder);
+
+  for (var key in BUILDING_KEYWORD_MAP) {
+    if (englishKeyword.indexOf(key) !== -1) {
+      Logger.log('🧭 키워드 매핑 적용: ' + englishKeyword + ' -> ' + BUILDING_KEYWORD_MAP[key]);
+      return BUILDING_KEYWORD_MAP[key];
+    }
+  }
+
+  Logger.log('🧭 키워드 원문 사용: ' + englishKeyword);
+  return englishKeyword;
+}
+
+function searchUnsplashPhoto_(keyword) {
+  var accessKey = getUnsplashKey_();
+  if (!accessKey) {
+    throw new Error('UNSPLASH_ACCESS_KEY가 설정되지 않았습니다. 자동생성 사용 전에 Properties Service에 키를 저장하세요.');
+  }
+
+  var apiUrl = 'https://api.unsplash.com/search/photos?query=' +
+    encodeURIComponent(keyword) +
+    '&page=1&per_page=1&orientation=landscape&content_filter=high';
+
+  Logger.log('🔎 Unsplash 검색어: ' + keyword);
+  var response = UrlFetchApp.fetch(apiUrl, {
+    method: 'get',
+    headers: {
+      Authorization: 'Client-ID ' + accessKey,
+      'Accept-Version': 'v1'
+    },
+    muteHttpExceptions: true
+  });
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+  Logger.log('📡 Unsplash 응답 코드: ' + responseCode);
+  Logger.log('📝 Unsplash 응답 미리보기(앞 120자): ' + responseText.substring(0, 120));
+
+  if (responseCode < 200 || responseCode >= 300) {
+    throw new Error('Unsplash API 호출 실패: ' + responseText);
+  }
+
+  var responseData = JSON.parse(responseText);
+  var photo = responseData && responseData.results && responseData.results.length > 0
+    ? responseData.results[0]
+    : null;
+  var imageUrl = photo && photo.urls ? (photo.urls.regular || photo.urls.full || photo.urls.small || '') : '';
+  var photographer = photo && photo.user && photo.user.name ? photo.user.name : '';
+  var creditText = photographer ? ('Photo by ' + photographer + ' on Unsplash') : 'Unsplash 출처 정보 없음';
+
+  return {
+    responseCode: responseCode,
+    imageUrl: imageUrl,
+    creditText: creditText,
+    raw: photo
+  };
+}
+
+function extractPhotoPlaceholders_(docContent) {
+  var placeholderMatches = String(docContent || '').match(/\[사진\s*\d+(?:\s*:[^\]]*)?\]/g) || [];
+  return Array.from(new Set(placeholderMatches)).sort(function(a, b) {
+    var numA = parseInt(a.match(/\d+/)[0], 10);
+    var numB = parseInt(b.match(/\d+/)[0], 10);
+    return numA - numB;
+  });
+}
+
+function clearAutoGeneratedImageFiles_(folder) {
+  if (!folder) return;
+
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var file = files.next();
+    if (/^\d+\.(jpg|jpeg|png)$/i.test(file.getName())) {
+      file.setTrashed(true);
+    }
+  }
+}
+
+function downloadUnsplashPhotosToFolder_(docContent, finalData, title, folder) {
+  if (!folder) {
+    throw new Error('Unsplash 저장 대상 Drive 폴더가 없습니다.');
+  }
+
+  var placeholders = extractPhotoPlaceholders_(docContent);
+  var downloaded = [];
+  var queryCache = {};
+
+  Logger.log('🧠 Unsplash Drive 저장 시작');
+  Logger.log('📁 대상 폴더: ' + folder.getName() + ' (' + folder.getId() + ')');
+  Logger.log('📋 다운로드 대상 플레이스홀더 수: ' + placeholders.length);
+
+  clearAutoGeneratedImageFiles_(folder);
+
+  for (var i = 0; i < placeholders.length; i++) {
+    var holder = placeholders[i];
+    var query = buildUnsplashKeywordFromHolder_(holder, finalData, title);
+    Logger.log('🔽 다운로드 시도: ' + holder + ' / query=' + query);
+    var searchResult = queryCache[query];
+
+    if (searchResult === undefined) {
+      searchResult = query ? searchUnsplashPhoto_(query) : { imageUrl: '', creditText: '' };
+      queryCache[query] = searchResult;
+    }
+
+    if (!searchResult.imageUrl) {
+      Logger.log('⚠️ Unsplash 이미지 검색 실패: ' + holder);
+      continue;
+    }
+
+    var imageResponse = UrlFetchApp.fetch(searchResult.imageUrl, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+    var imageCode = imageResponse.getResponseCode();
+    Logger.log('📡 이미지 다운로드 응답 코드: ' + imageCode + ' / ' + holder);
+
+    if (imageCode < 200 || imageCode >= 300) {
+      Logger.log('❌ Unsplash 이미지 다운로드 실패 (' + imageCode + '): ' + holder);
+      continue;
+    }
+
+    var imageNumber = parseInt(holder.match(/\d+/)[0], 10);
+    var fileName = ('0' + imageNumber).slice(-2) + '.jpg';
+    var imageBlob = imageResponse.getBlob().setName(fileName);
+    var savedFile = folder.createFile(imageBlob);
+    savedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    downloaded.push({
+      placeholder: holder,
+      fileName: fileName,
+      fileId: savedFile.getId(),
+      creditText: searchResult.creditText
+    });
+
+    Logger.log('💾 Unsplash 이미지 저장 완료: ' + fileName + ' / ' + searchResult.creditText);
+  }
+
+  Logger.log('✅ Unsplash Drive 저장 완료: ' + downloaded.length + '개');
+  return downloaded;
+}
+
+function mapUnsplashPhotosToPlaceholders_(docContent, finalData, title) {
+  if (!docContent) return '';
+
+  try {
+    var resultBody = docContent;
+    var mappedCount = 0;
+    var unmappedHolders = [];
+    var queryCache = {};
+    var placeholderMatches = docContent.match(/\[사진\s*\d+(?:\s*:[^\]]*)?\]/g) || [];
+    var uniqueHolders = Array.from(new Set(placeholderMatches)).sort(function(a, b) {
+      var numA = parseInt(a.match(/\d+/)[0], 10);
+      var numB = parseInt(b.match(/\d+/)[0], 10);
+      return numA - numB;
+    });
+
+    for (var i = 0; i < uniqueHolders.length; i++) {
+      var holder = uniqueHolders[i];
+      var query = buildUnsplashKeywordFromHolder_(holder, finalData, title);
+      var searchResult = queryCache[query];
+
+      if (searchResult === undefined) {
+        searchResult = query ? searchUnsplashPhoto_(query) : { imageUrl: '', creditText: '' };
+        queryCache[query] = searchResult;
+      }
+
+      if (searchResult.imageUrl) {
+        var escapedHolder = holder.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp(escapedHolder, "g");
+        resultBody = resultBody.replace(regex, searchResult.imageUrl);
+        mappedCount++;
+        Logger.log("🖼️ Unsplash 적용: " + searchResult.creditText);
+      } else {
+        unmappedHolders.push(holder);
+      }
+    }
+
+    var beforeClean = resultBody;
+    resultBody = resultBody.replace(/\[사진\s*\d+[^\]]*\]/g, '');
+    var removedCount = (beforeClean.match(/\[사진\s*\d+[^\]]*\]/g) || []).length;
+
+    Logger.log("✅ Unsplash 사진 매핑 완료: 총 " + mappedCount + "개 교체됨");
+    if (removedCount > 0) {
+      Logger.log("🗑️ Unsplash 사진 가이드 텍스트 제거: " + removedCount + "개");
+    }
+    if (unmappedHolders.length > 0) {
+      Logger.log("⚠️ Unsplash 미매핑 홀더 (" + unmappedHolders.length + "개): " + unmappedHolders.join(", "));
+    }
+
+    return resultBody;
+  } catch (error) {
+    Logger.log("❌ 오류 발생 (mapUnsplashPhotosToPlaceholders_): " + error.message);
+    Logger.log("❌ Unsplash 사진 매핑 스택: " + error.stack);
+    return docContent;
+  }
+}
+
+function testUnsplashAPI() {
+  try {
+    Logger.log("🧪 Unsplash API 테스트 시작");
+    var result = searchUnsplashPhoto_('window frame');
+    Logger.log("📡 응답 코드: " + result.responseCode);
+    Logger.log("🖼️ 이미지 URL: " + (result.imageUrl || '없음'));
+    Logger.log("📝 출처: " + result.creditText);
+    Logger.log(result.imageUrl ? "✅ Unsplash API 테스트 성공" : "⚠️ Unsplash 검색 결과 없음");
+    return result;
+  } catch (error) {
+    Logger.log("❌ testUnsplashAPI 실행 오류: " + error.message);
+    Logger.log("❌ testUnsplashAPI 스택: " + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function testUnsplashDownload() {
+  var testFolderId = '1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT';
+
+  try {
+    Logger.log('🧪 Unsplash 다운로드 테스트 시작');
+    Logger.log('🔎 테스트 키워드: natural gypsum board');
+    Logger.log('📁 저장 대상 폴더 ID: ' + testFolderId);
+
+    var searchResult = searchUnsplashPhoto_('natural gypsum board');
+    Logger.log('📡 Unsplash 응답 코드: ' + searchResult.responseCode);
+    Logger.log('🖼️ 이미지 URL: ' + (searchResult.imageUrl || '없음'));
+    Logger.log('📝 출처: ' + searchResult.creditText);
+
+    if (!searchResult.imageUrl) {
+      Logger.log('❌ 테스트 중단: 검색 결과 이미지 URL이 없습니다.');
+      return {
+        success: false,
+        responseCode: searchResult.responseCode,
+        imageUrl: '',
+        error: '검색 결과 없음'
+      };
+    }
+
+    Logger.log('🔽 이미지 다운로드 시도');
+    var imageResponse = UrlFetchApp.fetch(searchResult.imageUrl, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+    var imageCode = imageResponse.getResponseCode();
+    Logger.log('📡 이미지 다운로드 응답 코드: ' + imageCode);
+
+    if (imageCode < 200 || imageCode >= 300) {
+      Logger.log('❌ 이미지 다운로드 실패');
+      return {
+        success: false,
+        responseCode: searchResult.responseCode,
+        imageUrl: searchResult.imageUrl,
+        downloadCode: imageCode,
+        error: imageResponse.getContentText()
+      };
+    }
+
+    var folder = DriveApp.getFolderById(testFolderId);
+    var existingFiles = folder.getFilesByName('test_01.jpg');
+    while (existingFiles.hasNext()) {
+      existingFiles.next().setTrashed(true);
+    }
+
+    Logger.log('💾 Drive 저장 시도: test_01.jpg');
+    var savedFile = folder.createFile(imageResponse.getBlob().setName('test_01.jpg'));
+    savedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Logger.log('✅ Drive 저장 성공: test_01.jpg / ' + savedFile.getId());
+    Logger.log('🔗 Drive URL: ' + savedFile.getUrl());
+
+    return {
+      success: true,
+      responseCode: searchResult.responseCode,
+      imageUrl: searchResult.imageUrl,
+      downloadCode: imageCode,
+      fileId: savedFile.getId(),
+      fileUrl: savedFile.getUrl()
+    };
+  } catch (error) {
+    Logger.log('❌ testUnsplashDownload 오류: ' + error.message);
+    Logger.log('❌ testUnsplashDownload 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
 }
 
 /**
@@ -5480,6 +6168,14 @@ function convertToBloggerHTML(docContent, title) {
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
     if (!line) continue;
+
+    // 본문 첫 줄의 마크다운 제목은 이미 H1으로 출력했으므로 제거
+    if (line.indexOf('# ') === 0) {
+      var markdownTitle = line.substring(2).trim();
+      if (!markdownTitle || markdownTitle === String(title || '').trim()) {
+        continue;
+      }
+    }
     
     // 소제목 (##) -> H2 (내용물만 이스케이프)
     if (line.indexOf('## ') === 0) {
