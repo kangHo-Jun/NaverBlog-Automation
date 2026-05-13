@@ -5662,7 +5662,7 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
     var savedFile = folder.createFile(blob);
     savedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-    var driveViewUrl = "https://drive.google.com/uc?export=view&id=" + savedFile.getId();
+    var driveViewUrl = "https://lh3.googleusercontent.com/d/" + savedFile.getId();
     Logger.log("✅ Gemini 이미지 저장 성공: " + resolvedFileName + " / " + savedFile.getId());
     Logger.log("🔗 Gemini 이미지 URL: " + driveViewUrl);
 
@@ -5969,7 +5969,7 @@ function mapPhotosToPlaceholders(docContent, imageFolderId, finalData, title) {
           file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
           
           // 직링크 URL 생성 (Google Drive 고유 ID 활용)
-          var photoUrl = "https://drive.google.com/uc?export=view&id=" + file.getId();
+          var photoUrl = "https://lh3.googleusercontent.com/d/" + file.getId();
           
           // 본문 내 모든 해당 홀더 교체
           var escapedHolder = holder.replace(/[\[\]]/g, "\\$&"); // [ ] 특수문자 탈출 처리
@@ -6486,7 +6486,7 @@ function testConvertToBloggerHTML() {
   var testTitle = "2026년 건축 트렌드: 친환경 창호의 진화";
   var testContent = "## 1. 개요\n" +
     "올해 가장 주목받는 기술은 **단열 성능**입니다.\n\n" +
-    "https://drive.google.com/uc?id=1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2&export=view\n\n" +
+    "https://lh3.googleusercontent.com/d/1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2\n\n" +
     "## 2. 주요 특징\n" +
     "**고효율 유리**를 사용하여 에너지를 절약합니다.\n" +
     "### 2.1 세부 사항\n" +

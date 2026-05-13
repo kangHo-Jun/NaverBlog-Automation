@@ -104,6 +104,30 @@
 - 이미지 상위폴더: `1-QkVAQf8O5vSV4ndaXEHAD1soKmhQj5t`
 - 테스트 이미지 폴더: `1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT`
 
+# 이미지 호스팅 방식 결정 사항 (반드시 참고)
+
+문제:
+
+- Drive URL (`lh3.googleusercontent.com`, `drive.google.com/uc?export=view`) 은 Blogger 본문에서 렌더링 실패
+- 목록 페이지 썸네일은 보이지만 본문 펼치면 깨짐
+
+확정된 방향:
+
+| 모드 | 이미지 소스 | 호스팅 방식 |
+|------|------------|------------|
+| `자동생성` (v1) | Unsplash | Unsplash CDN URL 직접 삽입 (Drive 저장 불필요) |
+| `이미지생성` (v2) | Gemini 생성 | Imgur API로 공개 호스팅 후 URL 삽입 |
+
+v1 수정 시 반드시 적용:
+
+- Drive 저장 로직 제거
+- Unsplash 원본 URL을 그대로 본문 img 태그에 삽입
+
+v2 수정 시 반드시 적용:
+
+- Gemini base64 이미지 → Imgur API 업로드 → 공개 URL 반환 → 본문 삽입
+- Drive 저장 불필요
+
 # 실행 메모
 
 - `runGenerateOnly()`
