@@ -96,6 +96,7 @@
   - `CLAUDE_API_KEY`
   - `GEMINI_API_KEY`
   - `UNSPLASH_ACCESS_KEY`
+  - `GITHUB_TOKEN`
 
 # 주요 폴더 ID
 
@@ -116,7 +117,7 @@
 | 모드 | 이미지 소스 | 호스팅 방식 |
 |------|------------|------------|
 | `자동생성` (v1) | Unsplash | Unsplash CDN URL 직접 삽입 (Drive 저장 불필요) |
-| `이미지생성` (v2) | Gemini 생성 | Imgur API로 공개 호스팅 후 URL 삽입 |
+| `이미지생성` (v2) | Gemini 생성 | GitHub Raw URL로 공개 호스팅 후 URL 삽입 |
 
 v1 수정 시 반드시 적용:
 
@@ -125,8 +126,10 @@ v1 수정 시 반드시 적용:
 
 v2 수정 시 반드시 적용:
 
-- Gemini base64 이미지 → Imgur API 업로드 → 공개 URL 반환 → 본문 삽입
+- Gemini base64 이미지 → GitHub Contents API 업로드 → GitHub Raw URL 반환 → 본문 삽입
 - Drive 저장 불필요
+- 저장소: `kangHo-Jun/Blog`
+- 이미지 폴더: `/images/`
 
 # 실행 메모
 

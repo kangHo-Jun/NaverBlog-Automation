@@ -12,7 +12,8 @@ const PROP_KEYS = {
   PPLX_API_KEY: 'PPLX_API_KEY',
   CLAUDE_API_KEY: 'CLAUDE_API_KEY',
   GEMINI_API_KEY: 'GEMINI_API_KEY',
-  UNSPLASH_ACCESS_KEY: 'UNSPLASH_ACCESS_KEY'
+  UNSPLASH_ACCESS_KEY: 'UNSPLASH_ACCESS_KEY',
+  GITHUB_TOKEN: 'GITHUB_TOKEN'
 };
 
 // Spreadsheet 기본 설정
@@ -76,6 +77,13 @@ function getGeminiKey_() {
  */
 function getUnsplashKey_() {
   return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.UNSPLASH_ACCESS_KEY) || '';
+}
+
+/**
+ * 저장된 GitHub 토큰을 가져옵니다.
+ */
+function getGithubToken_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.GITHUB_TOKEN) || '';
 }
 
 /**
@@ -2760,6 +2768,7 @@ function runPublishOnly() {
     var placeholders = extractPhotoPlaceholders_(finalData.content);
     var imageFolder = null;
     var mappedContent;
+    var generatedImages = [];
     var htmlContent;
     var labels;
     var postUrl;
@@ -2803,11 +2812,6 @@ function runPublishOnly() {
         throw new Error('final_seo.json의 imagen_prompts가 비어 있습니다. runGenerateOnly()를 다시 실행해 prompt1/prompt2를 생성하세요.');
       }
 
-      var oldPng1 = imageFolder.getFilesByName('01.png');
-      while (oldPng1.hasNext()) oldPng1.next().setTrashed(true);
-      var oldPng2 = imageFolder.getFilesByName('02.png');
-      while (oldPng2.hasNext()) oldPng2.next().setTrashed(true);
-
       var generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), '01.png');
       var generatedImage2 = generateImageWithGemini_(prompt2, imageFolder.getId(), '02.png');
 
@@ -2815,9 +2819,11 @@ function runPublishOnly() {
         throw new Error('Gemini 이미지 생성 실패: 2장의 이미지가 모두 생성되지 않았습니다.');
       }
 
+      generatedImages = [generatedImage1, generatedImage2];
+
       Logger.log('✅ Gemini 이미지 2장 생성 완료');
-      Logger.log('🔗 01.png URL: ' + generatedImage1.driveUrl);
-      Logger.log('🔗 02.png URL: ' + generatedImage2.driveUrl);
+      Logger.log('🔗 01.png URL: ' + generatedImage1.publicUrl);
+      Logger.log('🔗 02.png URL: ' + generatedImage2.publicUrl);
     } else {
       Logger.log('🖼️ 직접업로드 모드: J열 폴더 이미지를 사용합니다.');
       imageFolder = existingImageFolderId
@@ -2827,15 +2833,17 @@ function runPublishOnly() {
     }
 
     Logger.log("3️⃣ 사진 매핑");
-    mappedContent = imageSource === '자동생성'
-      ? mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title)
-      : mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title);
+    if (imageSource === '이미지생성') {
+      mappedContent = mapGeneratedImageUrlsToPlaceholders_(finalData.content, generatedImages);
+    } else {
+      mappedContent = mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title);
+    }
 
-    Logger.log("4️⃣ Blogger HTML 변환");
-    htmlContent = convertToBloggerHTML(mappedContent, title);
     labels = (finalData.seo_keywords || [])
       .filter(function(l) { return typeof l === 'string' && l.trim() !== ''; })
       .map(function(l) { return l.trim().substring(0, 50); });
+    Logger.log("4️⃣ Blogger HTML 변환");
+    htmlContent = convertToBloggerHTML(mappedContent, title, labels);
 
     if (publishMode === '수동승인' && !isApproved) {
       updatePublishStatus_(sheet, controlRow.rowIndex, '승인대기');
@@ -5523,14 +5531,18 @@ function generateImagenPrompts_(content, title, highlightKeywords) {
     var contentSnippet = String(content || '').substring(0, 2000);
     var keywordText = Array.isArray(highlightKeywords) ? highlightKeywords.join(', ') : String(highlightKeywords || '');
     var promptText =
-      "아래 건축자재 블로그 글에서 기술적 핵심 특징 2가지를 추출하고,\n" +
-      "각각에 대한 Imagen 일러스트 프롬프트를 영어로 생성하라.\n\n" +
+      "아래 건축자재 블로그 글에서 아래를 추출하라:\n" +
+      "1. 기존 방식/문제점 -> {기존방식} (영어로)\n" +
+      "2. 개선 방식/추천 자재 -> {개선방식} (영어로)\n" +
+      "3. 핵심 자재명 -> {자재명} (영어로)\n\n" +
+      "위 추출값을 아래 템플릿에 채워 완성된 프롬프트 2개를 생성하라.\n\n" +
+      "이미지1 (CTR 비교형) 템플릿:\n" +
+      "split-screen architectural technical infographic showing {기존방식} vs {개선방식}, detailed cross sectional construction layers, realistic material textures, moisture and thermal flow visualization, engineering style cutaway diagram, ultra detailed, clean white background, cinematic technical lighting, modern construction technology illustration, minimal text labels, only 2-3 korean labels for key differences, no english text blocks\n\n" +
+      "이미지2 (단면 구조형) 템플릿:\n" +
+      "exploded cross sectional view of {자재명} internal structure, showing material layers and composition, realistic construction material texture, architectural engineering infographic, ultra detailed technical rendering, heat flow arrows, moisture visualization, clean white background, minimal text, only essential korean labels, no dense text blocks\n\n" +
       "규칙:\n" +
-      "- 스타일: Technical illustration, flat design, clean white background, no text, no people\n" +
-      "- 이미지1: 제품 구조/단면도 일러스트\n" +
-      "- 이미지2: 기술적 특징/성능 비교 인포그래픽\n" +
-      "- 회사명, 브랜드명, 지역명 포함 금지\n" +
-      "- JSON 형식으로만 출력: {\"prompt1\": \"...\", \"prompt2\": \"...\"}\n\n" +
+      "- 회사명, 브랜드명, 지역명 절대 포함 금지\n" +
+      "- 출력은 JSON만 허용: {\"prompt1\": \"...\", \"prompt2\": \"...\"}\n\n" +
       "글 제목: " + String(title || '') + "\n" +
       "강조키워드: " + keywordText + "\n" +
       "본문: " + contentSnippet;
@@ -5605,9 +5617,8 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
     }
 
     var targetFolderId = folderId || '1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT';
-    var folder = DriveApp.getFolderById(targetFolderId);
-    var resolvedFileName = fileName || getNextImagenFileName_(folder);
-    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey;
+    var resolvedFileName = fileName || 'image_' + new Date().getTime() + '.png';
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=" + apiKey;
     var payload = {
       contents: [{
         parts: [{ text: prompt }]
@@ -5617,7 +5628,7 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
       }
     };
 
-    Logger.log("📁 저장 대상 폴더: " + folder.getName() + " (" + targetFolderId + ")");
+    Logger.log("📁 참조 폴더 ID: " + targetFolderId);
     Logger.log("🖼️ 저장 파일명: " + resolvedFileName);
     Logger.log("📝 이미지 프롬프트(앞 200자): " + String(prompt || '').substring(0, 200));
 
@@ -5657,20 +5668,14 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
     }
 
     var mimeType = imagePart.inlineData.mimeType || 'image/png';
-    var imageBytes = Utilities.base64Decode(imagePart.inlineData.data);
-    var blob = Utilities.newBlob(imageBytes, mimeType, resolvedFileName);
-    var savedFile = folder.createFile(blob);
-    savedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    var driveViewUrl = "https://lh3.googleusercontent.com/d/" + savedFile.getId();
-    Logger.log("✅ Gemini 이미지 저장 성공: " + resolvedFileName + " / " + savedFile.getId());
-    Logger.log("🔗 Gemini 이미지 URL: " + driveViewUrl);
+    var githubUrl = uploadImageToGitHub_(imagePart.inlineData.data, resolvedFileName);
+    Logger.log("✅ Gemini 이미지 GitHub 업로드 성공: " + resolvedFileName);
+    Logger.log("🔗 Gemini 이미지 URL: " + githubUrl);
 
     return {
-      fileId: savedFile.getId(),
       fileName: resolvedFileName,
       mimeType: mimeType,
-      driveUrl: driveViewUrl,
+      publicUrl: githubUrl,
       responseCode: responseCode
     };
   } catch (error) {
@@ -5678,6 +5683,76 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
     Logger.log("❌ generateImageWithGemini_ 스택: " + error.stack);
     return null;
   }
+}
+
+function uploadImageToGitHub_(base64Data, fileName) {
+  var githubToken = getGithubToken_();
+  var resolvedFileName = String(fileName || ('image_' + new Date().getTime() + '.png')).trim();
+  var normalizedBase64 = String(base64Data || '').trim();
+  var dataUriMatch = normalizedBase64.match(/^data:([^;]+);base64,(.+)$/);
+  var apiUrl = 'https://api.github.com/repos/kangHo-Jun/Blog/contents/images/' + encodeURIComponent(resolvedFileName);
+
+  if (!githubToken) {
+    throw new Error('GITHUB_TOKEN이 설정되지 않았습니다. Properties Service에 저장하세요.');
+  }
+
+  if (!normalizedBase64) {
+    throw new Error('업로드할 base64 이미지 데이터가 비어 있습니다.');
+  }
+
+  if (dataUriMatch) {
+    normalizedBase64 = dataUriMatch[2] || '';
+  }
+
+  if (!normalizedBase64) {
+    throw new Error('정규화 후 base64 이미지 데이터가 비어 있습니다.');
+  }
+
+  var existingResponse = UrlFetchApp.fetch(apiUrl, {
+    method: 'get',
+    headers: {
+      Authorization: 'Bearer ' + githubToken,
+      Accept: 'application/vnd.github+json'
+    },
+    muteHttpExceptions: true
+  });
+  var existingCode = existingResponse.getResponseCode();
+  var existingText = existingResponse.getContentText();
+  var payload = {
+    message: 'Add blog image ' + resolvedFileName,
+    content: normalizedBase64
+  };
+
+  if (existingCode === 200) {
+    var existingData = JSON.parse(existingText);
+    if (existingData && existingData.sha) {
+      payload.sha = existingData.sha;
+    }
+  } else if (existingCode !== 404) {
+    throw new Error('GitHub 기존 파일 확인 실패: ' + existingText);
+  }
+
+  var response = UrlFetchApp.fetch(apiUrl, {
+    method: 'put',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    headers: {
+      Authorization: 'Bearer ' + githubToken,
+      Accept: 'application/vnd.github+json'
+    },
+    muteHttpExceptions: true
+  });
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  Logger.log('📡 GitHub 업로드 응답 코드: ' + responseCode);
+  Logger.log('📝 GitHub 업로드 응답(앞 200자): ' + responseText.substring(0, 200));
+
+  if (responseCode < 200 || responseCode >= 300) {
+    throw new Error('GitHub 업로드 실패: ' + responseText);
+  }
+
+  return 'https://raw.githubusercontent.com/kangHo-Jun/Blog/main/images/' + encodeURIComponent(resolvedFileName);
 }
 
 /**
@@ -5963,6 +6038,7 @@ function mapPhotosToPlaceholders(docContent, imageFolderId, finalData, title) {
 
       if (fileIndex >= 0 && fileIndex < photoFiles.length) {
         var file = photoFiles[fileIndex];
+        var photoDescription = extractPhotoDescriptionFromHolder_(holder);
         
         // 파일을 링크가 있는 모든 사용자에게 공개 (보기 권한)
         try {
@@ -5974,7 +6050,7 @@ function mapPhotosToPlaceholders(docContent, imageFolderId, finalData, title) {
           // 본문 내 모든 해당 홀더 교체
           var escapedHolder = holder.replace(/[\[\]]/g, "\\$&"); // [ ] 특수문자 탈출 처리
           var regex = new RegExp(escapedHolder, "g");
-          resultBody = resultBody.replace(regex, photoUrl);
+          resultBody = resultBody.replace(regex, buildBloggerImageToken_(photoUrl, photoDescription));
           mappedCount++;
         } catch (shareError) {
           Logger.log("❌ 권한 설정 실패: " + file.getName() + " (" + shareError.message + ")");
@@ -5983,9 +6059,10 @@ function mapPhotosToPlaceholders(docContent, imageFolderId, finalData, title) {
       } else {
         var fallbackResult = searchUnsplashPhoto_(buildUnsplashKeywordFromHolder_(holder, finalData, title));
         if (fallbackResult.imageUrl) {
+          var fallbackDescription = extractPhotoDescriptionFromHolder_(holder);
           var escapedHolder = holder.replace(/[\[\]]/g, "\\$&");
           var regex = new RegExp(escapedHolder, "g");
-          resultBody = resultBody.replace(regex, fallbackResult.imageUrl);
+          resultBody = resultBody.replace(regex, buildBloggerImageToken_(fallbackResult.imageUrl, fallbackDescription));
           mappedCount++;
           Logger.log("🧠 폴더 사진 부족 → Unsplash 대체 적용: " + fallbackResult.creditText);
         } else {
@@ -6034,6 +6111,59 @@ function testMapPhotosToPlaceholders() {
   Logger.log("🧪 사진 매핑 테스트 시작...");
   var result = mapPhotosToPlaceholders(dummyContent, testFolderId);
   Logger.log("📝 결과 본문 (미리보기 500자):\n" + result.substring(0, 500));
+}
+
+function extractPhotoDescriptionFromHolder_(holder) {
+  var descriptionMatch = String(holder || '').match(/:\s*([^\]]+)/);
+  return descriptionMatch ? descriptionMatch[1].trim() : '관련 이미지';
+}
+
+function buildBloggerImageToken_(url, description) {
+  return '[[IMG::' + encodeURIComponent(String(url || '')) + '::' + encodeURIComponent(String(description || '관련 이미지')) + ']]';
+}
+
+function parseBloggerImageToken_(line) {
+  var match = String(line || '').match(/^\[\[IMG::(.+?)::(.+?)\]\]$/);
+  if (!match) return null;
+
+  return {
+    url: decodeURIComponent(match[1]),
+    description: decodeURIComponent(match[2])
+  };
+}
+
+function mapGeneratedImageUrlsToPlaceholders_(docContent, generatedImages) {
+  if (!docContent) return '';
+
+  var resultBody = docContent;
+  var mappedCount = 0;
+  var placeholderMatches = docContent.match(/\[사진\s*\d+(?:\s*:[^\]]*)?\]/g) || [];
+  var uniqueHolders = Array.from(new Set(placeholderMatches)).sort(function(a, b) {
+    var numA = parseInt(a.match(/\d+/)[0], 10);
+    var numB = parseInt(b.match(/\d+/)[0], 10);
+    return numA - numB;
+  });
+
+  for (var i = 0; i < uniqueHolders.length; i++) {
+    var holder = uniqueHolders[i];
+    var imageIndex = parseInt(holder.match(/\d+/)[0], 10) - 1;
+    var generated = generatedImages && generatedImages[imageIndex];
+    var publicUrl = generated && generated.publicUrl ? generated.publicUrl : '';
+    var photoDescription = extractPhotoDescriptionFromHolder_(holder);
+
+    if (!publicUrl) {
+      continue;
+    }
+
+    var escapedHolder = holder.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp(escapedHolder, "g");
+    resultBody = resultBody.replace(regex, buildBloggerImageToken_(publicUrl, photoDescription));
+    mappedCount++;
+  }
+
+  resultBody = resultBody.replace(/\[사진\s*\d+[^\]]*\]/g, '');
+  Logger.log('✅ 생성 이미지 URL 매핑 완료: 총 ' + mappedCount + '개 교체됨');
+  return resultBody;
 }
 
 var BUILDING_KEYWORD_MAP = {
@@ -6229,9 +6359,10 @@ function mapUnsplashPhotosToPlaceholders_(docContent, finalData, title) {
       }
 
       if (searchResult.imageUrl) {
+        var photoDescription = extractPhotoDescriptionFromHolder_(holder);
         var escapedHolder = holder.replace(/[\[\]]/g, "\\$&");
         var regex = new RegExp(escapedHolder, "g");
-        resultBody = resultBody.replace(regex, searchResult.imageUrl);
+        resultBody = resultBody.replace(regex, buildBloggerImageToken_(searchResult.imageUrl, photoDescription));
         mappedCount++;
         Logger.log("🖼️ Unsplash 적용: " + searchResult.creditText);
       } else {
@@ -6370,17 +6501,47 @@ function testGeminiImageGen() {
     }
 
     Logger.log('✅ testGeminiImageGen 성공');
-    Logger.log('🔗 결과 URL: ' + result.driveUrl);
+    Logger.log('🔗 결과 URL: ' + result.publicUrl);
     return {
       success: true,
-      fileId: result.fileId,
       fileName: result.fileName,
-      driveUrl: result.driveUrl,
+      publicUrl: result.publicUrl,
       responseCode: result.responseCode
     };
   } catch (error) {
     Logger.log('❌ testGeminiImageGen 오류: ' + error.message);
     Logger.log('❌ testGeminiImageGen 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function testGitHubImageUpload() {
+  var sampleBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=';
+  var fileName = 'test_' + new Date().getTime() + '.png';
+
+  try {
+    Logger.log('🧪 GitHub 이미지 업로드 테스트 시작');
+    Logger.log('📄 파일명: ' + fileName);
+
+    var publicUrl = uploadImageToGitHub_(sampleBase64, fileName);
+
+    Logger.log('✅ GitHub 이미지 업로드 테스트 성공');
+    Logger.log('📡 응답 코드: 200~299 확인');
+    Logger.log('🔗 공개 URL: ' + publicUrl);
+    Logger.log('📁 GitHub 저장소 확인 경로: kangHo-Jun/Blog/images/' + fileName);
+
+    return {
+      success: true,
+      fileName: fileName,
+      publicUrl: publicUrl
+    };
+  } catch (error) {
+    Logger.log('❌ testGitHubImageUpload 오류: ' + error.message);
+    Logger.log('❌ testGitHubImageUpload 스택: ' + error.stack);
     return {
       success: false,
       error: error.message,
@@ -6400,9 +6561,10 @@ function testGeminiImageGen() {
  * 
  * @param {string} docContent - 사진 매핑(URL 치환)이 완료된 글 본문
  * @param {string} title - 글 제목
+ * @param {string[]=} seoKeywords - SEO 키워드 목록
  * @return {string} Blogger 에디터용 HTML 코드
  */
-function convertToBloggerHTML(docContent, title) {
+function convertToBloggerHTML(docContent, title, seoKeywords) {
   if (!docContent) return "";
   
   // HTML 특수문자 이스케이프 함수
@@ -6414,8 +6576,49 @@ function convertToBloggerHTML(docContent, title) {
       .replace(/>/g, "&gt;");
   };
 
+  var renderInlineText = function(text, localTagCount) {
+    var processedText = escapeHtml(text);
+    processedText = processedText.replace(/\*\*(.*?)\*\*/g, function(match, p1) {
+      if (localTagCount) localTagCount.strong++;
+      return "<strong>" + p1 + "</strong>";
+    });
+    return processedText;
+  };
+
+  var isRawImageUrl = function(line) {
+    return line.indexOf('https://drive.google.com/uc') !== -1 ||
+      line.indexOf('https://raw.githubusercontent.com/') !== -1 ||
+      line.indexOf('https://lh3.googleusercontent.com/') !== -1 ||
+      line.indexOf('https://images.unsplash.com/') !== -1;
+  };
+
+  var buildImageHtml = function(url, description) {
+    var safeDescription = escapeHtml(description || '관련 이미지');
+    return "<div style=\"width:100%; margin:2em 0;\">\n" +
+      "  <img src=\"" + url + "\" style=\"width:100%; height:auto; display:block; border-radius:8px;\">\n" +
+      "  <p style=\"text-align:center; color:#888; font-size:0.85em; margin-top:0.5em;\">▲ " + safeDescription + " (출처: (주)대산 기술팀)</p>\n" +
+      "</div>\n";
+  };
+
+  var buildCtaHtml = function(materialName) {
+    var safeMaterialName = escapeHtml(materialName || '건축자재');
+    return "<div style=\"background:#1a3a5c; color:white; padding:2em; margin:2em 0; border-radius:8px; text-align:center;\">\n" +
+      "  <p style=\"font-size:1.2em; font-weight:500; margin:0 0 0.5em; color:white;\">지금 바로 견적 받아보세요</p>\n" +
+      "  <p style=\"font-size:0.9em; margin:0 0 1.2em; color:rgba(255,255,255,0.85); line-height:1.7;\">" + safeMaterialName + " 비용이 궁금하신가요?<br>대산 실시간 견적 시스템으로 30초 안에 확인하세요</p>\n" +
+      "  <a href=\"https://daesan.ai\" style=\"display:inline-block; background:white; color:#1a3a5c; padding:0.7em 2em; border-radius:8px; font-weight:500; font-size:0.9em; text-decoration:none;\">견적 받기 →</a>\n" +
+      "</div>\n";
+  };
+
+  var buildSignatureHtml = function() {
+    return "<div style=\"border-top:1px solid #ddd; margin-top:3em; padding-top:1.5em; color:#666; font-size:0.9em; line-height:1.8;\">\n" +
+      "  <p style=\"margin:0.3em 0;\">이 글은 <strong>(주)대산 기술팀</strong>이 직접 작성했습니다.</p>\n" +
+      "  <p style=\"margin:0.3em 0;\">30년 건축자재 전문 노하우를 바탕으로 정확한 정보만을 제공합니다.</p>\n" +
+      "  <p style=\"margin:0.3em 0;\">공식 사이트: <a href=\"https://daesan.ai\" style=\"color:#2c5f8a; text-decoration:none;\">daesan.ai</a></p>\n" +
+      "</div>\n";
+  };
+
   var html = "";
-  var tagCount = { h1: 0, h2: 0, p: 0, img: 0, strong: 0 };
+  var tagCount = { h1: 0, h2: 0, p: 0, img: 0, strong: 0, div: 0 };
   
   // 1. 제목 (H1) - 이스케이프 적용
   html += "<h1 style=\"font-size: 2em; margin-bottom: 0.5em;\">" + escapeHtml(title) + "</h1>\n";
@@ -6423,6 +6626,15 @@ function convertToBloggerHTML(docContent, title) {
   
   // 2. 본문 처리
   var lines = docContent.split('\n');
+  var totalH2 = 0;
+  for (var h2Scan = 0; h2Scan < lines.length; h2Scan++) {
+    if (String(lines[h2Scan] || '').trim().indexOf('## ') === 0) totalH2++;
+  }
+
+  var ctaInsertIndex = totalH2 > 0 ? Math.ceil(totalH2 / 2) : 0;
+  var insertedCta = false;
+  var renderedH2 = 0;
+  var ctaKeyword = seoKeywords && seoKeywords.length > 0 ? seoKeywords[0] : '건축자재';
   
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
@@ -6439,38 +6651,96 @@ function convertToBloggerHTML(docContent, title) {
     // 소제목 (##) -> H2 (내용물만 이스케이프)
     if (line.indexOf('## ') === 0) {
       var h2Text = escapeHtml(line.substring(3).trim());
-      html += "<h2 style=\"font-size: 1.5em; margin-top: 1.5em; margin-bottom: 0.5em; color: #333;\">" + h2Text + "</h2>\n";
+      html += "<h2 style=\"font-size:1.5em; font-weight:500; margin-top:2em; padding-top:1em; border-top:3px solid #2c5f8a; color:#1a1a1a;\">" + h2Text + "</h2>\n";
       tagCount.h2++;
+      renderedH2++;
+      if (!insertedCta && ctaInsertIndex > 0 && renderedH2 === ctaInsertIndex) {
+        html += buildCtaHtml(ctaKeyword);
+        tagCount.div++;
+        insertedCta = true;
+      }
     }
     // 소제목 (###) -> H3
     else if (line.indexOf('### ') === 0) {
       var h3Text = escapeHtml(line.substring(4).trim());
-      html += "<h3 style=\"font-size: 1.2em; margin-top: 1.2em; margin-bottom: 0.5em; color: #666;\">" + h3Text + "</h3>\n";
+      html += "<h3 style=\"font-size:1.2em; margin-top:1.2em; margin-bottom:0.5em; color:#2c5f8a; font-weight:500;\">" + h3Text + "</h3>\n";
     }
-    // 이미지 URL 처리 (Drive URL 패턴 감지) - length 제한 제거
-    else if (line.indexOf('https://drive.google.com/uc') !== -1) {
-      // 줄에 URL이 포함된 경우 (전체 URL 블록으로 처리)
-      // URL 자체의 &는 앰퍼샌드로 인코딩하지 않고 원본 유지 (Blogger 호환성)
-      html += "<div style=\"margin: 1em 0;\">\n";
-      html += "  <img src=\"" + line + "\" style=\"width: 100%; max-width: 800px; height: auto; display: block; margin: 1em auto;\" />\n";
-      html += "</div>\n";
+    else if (parseBloggerImageToken_(line)) {
+      var tokenData = parseBloggerImageToken_(line);
+      html += buildImageHtml(tokenData.url, tokenData.description);
       tagCount.img++;
+      tagCount.div++;
+    }
+    else if (isRawImageUrl(line)) {
+      html += buildImageHtml(line, '관련 이미지');
+      tagCount.img++;
+      tagCount.div++;
+    }
+    else if (/^\*\*[^*]+:\*\*/.test(line)) {
+      var highlightLines = [];
+      while (i < lines.length && /^\*\*[^*]+:\*\*/.test(String(lines[i] || '').trim())) {
+        highlightLines.push(String(lines[i] || '').trim());
+        i++;
+      }
+      i--;
+
+      html += "<div style=\"background:#f0f6ff; border-left:4px solid #2c5f8a; padding:1rem 1.5rem; margin:1.5rem 0; border-radius:0 8px 8px 0;\">\n";
+      for (var hl = 0; hl < highlightLines.length; hl++) {
+        html += "  <p style=\"line-height:1.8; margin:0 0 0.8em; color:#1a1a1a;\">" + renderInlineText(highlightLines[hl], tagCount) + "</p>\n";
+      }
+      html += "</div>\n";
+      tagCount.div++;
+    }
+    else if (/%/.test(line)) {
+      var metricLines = [];
+      var metricIndex = i;
+      while (metricIndex < lines.length && /\d+(?:\.\d+)?%/.test(String(lines[metricIndex] || '').trim())) {
+        metricLines.push(String(lines[metricIndex] || '').trim());
+        metricIndex++;
+      }
+
+      if (metricLines.length >= 3) {
+        html += "<div style=\"display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:1.5rem 0;\">\n";
+        for (var ml = 0; ml < metricLines.length; ml++) {
+          var metricLine = metricLines[ml];
+          var metricMatch = metricLine.match(/(\d+(?:\.\d+)?%)/);
+          var metricValue = metricMatch ? metricMatch[1] : '';
+          var metricLabel = metricLine.replace(metricValue, '').replace(/^[-•\s]+/, '').trim() || '핵심 지표';
+          html += "  <div style=\"background:#f5f7fa; border-radius:8px; padding:1rem; text-align:center;\">\n";
+          html += "    <p style=\"font-size:1.5em; font-weight:500; color:#2c5f8a; margin:0 0 4px;\">" + escapeHtml(metricValue) + "</p>\n";
+          html += "    <p style=\"font-size:0.8em; color:#888; margin:0;\">" + escapeHtml(metricLabel) + "</p>\n";
+          html += "  </div>\n";
+        }
+        html += "</div>\n";
+        tagCount.div++;
+        i = metricIndex - 1;
+      } else {
+        html += "<p style=\"line-height:1.8; margin-bottom:1.2em; color:#222;\">" + renderInlineText(line, tagCount) + "</p>\n";
+        tagCount.p++;
+      }
+    }
+    else if (/^".+"$/.test(line)) {
+      html += "<div style=\"border-left:3px solid #2c5f8a; padding:1rem 1.5rem; margin:1.5rem 0; font-style:italic; color:#555; font-size:1em; line-height:1.8;\">\n";
+      html += escapeHtml(line) + "\n";
+      html += "<p style=\"font-size:0.85em; color:#888; margin-top:0.5em; font-style:normal;\">— (주)대산 기술팀</p>\n";
+      html += "</div>\n";
+      tagCount.div++;
     }
     // 일반 문단 처리
     else {
-      // 1) 텍스트 이스케이프 먼저 수행
-      var processedText = escapeHtml(line);
-      
-      // 2) 강조 텍스트 (**강조**) -> <strong> (태그는 이스케이프 이후 삽입)
-      processedText = processedText.replace(/\*\*(.*?)\*\*/g, function(match, p1) {
-        tagCount.strong++;
-        return "<strong>" + p1 + "</strong>";
-      });
-      
-      html += "<p style=\"line-height: 1.8; margin-bottom: 1.2em; color: #222;\">" + processedText + "</p>\n";
+      var processedText = renderInlineText(line, tagCount);
+      html += "<p style=\"line-height:1.8; margin-bottom:1.2em; color:#222;\">" + processedText + "</p>\n";
       tagCount.p++;
     }
   }
+
+  if (!insertedCta && totalH2 === 0) {
+    html += buildCtaHtml(ctaKeyword);
+    tagCount.div++;
+  }
+
+  html += buildSignatureHtml();
+  tagCount.div++;
   
   // 로그 기록
   Logger.log("✅ Blogger HTML 변환 완료 (보안 이스케이프 적용)");
@@ -6486,14 +6756,19 @@ function testConvertToBloggerHTML() {
   var testTitle = "2026년 건축 트렌드: 친환경 창호의 진화";
   var testContent = "## 1. 개요\n" +
     "올해 가장 주목받는 기술은 **단열 성능**입니다.\n\n" +
-    "https://lh3.googleusercontent.com/d/1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2\n\n" +
+    "[[IMG::https%3A%2F%2Flh3.googleusercontent.com%2Fd%2F1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2::%EC%B0%BD%ED%98%B8%20%EB%8B%A8%EB%A9%B4%20%EC%98%88%EC%8B%9C]]\n\n" +
     "## 2. 주요 특징\n" +
-    "**고효율 유리**를 사용하여 에너지를 절약합니다.\n" +
+    "**VOC 감소:** 실내 공기질 개선 효과를 기대할 수 있습니다.\n" +
+    "**단열 성능:** 계절별 냉난방 부담을 줄입니다.\n\n" +
+    "82% VOC 감소\n" +
+    "65% 단열 향상\n" +
+    "38% 유지보수 감소\n\n" +
+    "\"현장에서는 작은 자재 차이가 최종 만족도를 크게 바꿉니다.\"\n" +
     "### 2.1 세부 사항\n" +
     "프레임의 두께가 얇아지면서 시야가 넓어졌습니다.";
     
   Logger.log("🧪 Blogger HTML 변환 테스트 시작...");
-  var resultHtml = convertToBloggerHTML(testContent, testTitle);
+  var resultHtml = convertToBloggerHTML(testContent, testTitle, ['친환경 창호']);
   Logger.log("📝 변환된 HTML 결과:\n" + resultHtml);
 }
 
@@ -6512,7 +6787,7 @@ function testConvertToBloggerHTML() {
  * @return {string} 발행된 글 URL
  */
 function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime) {
-  var isDraft = (publishMode === '수동승인');
+  var isDraft = true;
   var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID + '/posts/' + (isDraft ? '?isDraft=true' : '');
 
   try {
