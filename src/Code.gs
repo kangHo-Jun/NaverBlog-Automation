@@ -32,6 +32,7 @@ const CLAUDE_DEFAULTS = {
 // 🗂️ 폴더 분리 설정
 const CONFIG = {
   INPUT_FOLDER_ID: '1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8',      // 업로드 파일 폴더 (메인 처리용)
+  PROCESSED_SOURCE_FOLDER_ID: '1KIex4c3z-g3Kvlf3DoTX-ziUDl_R8-a1', // 글 생성 완료 원본 보관 폴더
   STYLE_ANALYSIS_FOLDER_ID: '1viEjA-r-o6srdtRHMU0t5gm7ucDpp6Cz', // 스타일 분석 전용 폴더 (신규)
   JSON_OUTPUT_FOLDER_ID: '1wr_0xqWOqStu7AFw3NP9RktXA-f7AR0o',  // JSON 파일 다운로드 폴더
   DOCS_OUTPUT_FOLDER_ID: '1u5ZSrhZPLjS4q5jTUdRP-zEdDDNaCY8W'   // 구글독스 파일 다운로드 폴더
@@ -39,6 +40,29 @@ const CONFIG = {
 
 // 🏠 Blogger 설정
 const BLOG_ID = '3911627335922911456';
+
+var CATEGORY_MAP = {
+  '석고보드': ['석고', 'gypsum', 'drywall', '천연석고', '방수석고'],
+  '목자재': ['목재', '합판', '목문', '도어', 'wood', 'lumber', 'mdf'],
+  '단열재': ['단열', '보온', 'insulation', '우레탄', '압출법'],
+  '기타': []
+};
+
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('대산 블로그')
+      .addItem('전체 실행 (생성+발행)', 'runCompleteProcess')
+      .addSeparator()
+      .addItem('1단계: 글 생성', 'runGenerateOnly')
+      .addItem('2단계: 발행', 'runPublishOnly')
+      .addSeparator()
+      .addItem('초기화 (새 글 작업 준비)', 'resetForNewPost')
+      .addToUi();
+  } catch (error) {
+    Logger.log('⚠️ onOpen UI 생성 스킵: ' + error.message);
+  }
+}
 
 
 /**
@@ -84,6 +108,24 @@ function getUnsplashKey_() {
  */
 function getGithubToken_() {
   return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.GITHUB_TOKEN) || '';
+}
+
+function moveSourceFileToProcessedFolder_(fileId) {
+  if (!fileId) {
+    Logger.log('⚠️ source_file_id가 없어 원본 파일 이동을 건너뜁니다.');
+    return false;
+  }
+
+  try {
+    var sourceFile = DriveApp.getFileById(fileId);
+    var targetFolder = DriveApp.getFolderById(CONFIG.PROCESSED_SOURCE_FOLDER_ID);
+    sourceFile.moveTo(targetFolder);
+    Logger.log('📦 원본 파일 이동 완료: ' + sourceFile.getName() + ' → ' + targetFolder.getName());
+    return true;
+  } catch (error) {
+    Logger.log('⚠️ 원본 파일 이동 실패: ' + error.message);
+    return false;
+  }
 }
 
 /**
@@ -171,6 +213,30 @@ function getTopKeywords(text, topN) {
   }
   entries.sort(function(a, b) { return b[1] - a[1]; });
   return entries.slice(0, topN).map(function(entry) { return entry[0]; });
+}
+
+function detectCategory_(seoKeywords, highlightKeywords, title) {
+  var sourceText = []
+    .concat(seoKeywords || [])
+    .concat(highlightKeywords || [])
+    .concat([title || ''])
+    .join(' ')
+    .toLowerCase();
+
+  for (var category in CATEGORY_MAP) {
+    if (category === '기타') continue;
+
+    var keywords = CATEGORY_MAP[category] || [];
+    for (var i = 0; i < keywords.length; i++) {
+      if (sourceText.indexOf(String(keywords[i] || '').toLowerCase()) !== -1) {
+        Logger.log('📂 카테고리 자동 감지: ' + category + ' / 키워드=' + keywords[i]);
+        return category;
+      }
+    }
+  }
+
+  Logger.log('📂 카테고리 자동 감지 실패 → 기타');
+  return '기타';
 }
 
 // 불릿 비율 계산
@@ -637,6 +703,9 @@ function preprocessFilesToJson() {
         analyzed = analyzeHtml(content);
       }
     }
+
+    analyzed.source_file_id = f.getId();
+    analyzed.source_file_name = name;
     
     var outName = baseName + '_preprocess.json';
     
@@ -1620,6 +1689,8 @@ function processNextSEOFile() {
       generated_at: new Date().toISOString(),
       baseName: baseName,
       timeStamp: timeStamp,
+      source_file_id: preprocessData.source_file_id || '',
+      source_file_name: preprocessData.source_file_name || '',
       file_type: fileType,
       seo_keywords: seoKeywords,
       highlight_keywords: highlightKeywords,
@@ -2565,13 +2636,13 @@ function getPublishControlRow_(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
   for (var i = 0; i < values.length; i++) {
     var publishMode = String(values[i][5] || '').trim();
     if (publishMode !== '자동' && publishMode !== '수동승인') continue;
-    var bloggerUrl = String(values[i][11] || '').trim();
-    if (bloggerUrl) continue; // L열 URL 있으면 이미 발행완료 → 스킵
+    var bloggerUrl = String(values[i][8] || '').trim();
+    if (bloggerUrl) continue; // I열 URL 있으면 이미 발행완료 → 스킵
     return {
       rowIndex: i + 2,
       values: values[i]
@@ -2589,25 +2660,11 @@ function updatePublishStatus_(sheet, rowIndex, status) {
 function ensurePublishControlHeaders_(sheet) {
   if (!sheet) return;
 
-  var imageSourceHeader = String(sheet.getRange(1, 13).getValue() || '').trim();
+  var imageSourceHeader = String(sheet.getRange(1, 10).getValue() || '').trim();
   if (imageSourceHeader !== '이미지소스') {
-    sheet.getRange(1, 13).setValue('이미지소스');
-    Logger.log('🧩 시트1 M1 헤더를 "이미지소스"로 설정했습니다.');
+    sheet.getRange(1, 10).setValue('이미지소스');
+    Logger.log('🧩 시트1 J1 헤더를 "이미지소스"로 설정했습니다.');
   }
-}
-
-function getImageFolderIdFromControlRow_(controlRow) {
-  if (!controlRow || !controlRow.values) {
-    return '';
-  }
-
-  var folderRef = String(controlRow.values[9] || '').trim();
-  if (!folderRef) {
-    return '';
-  }
-
-  var urlMatch = folderRef.match(/[-\w]{25,}/);
-  return urlMatch ? urlMatch[0] : folderRef;
 }
 
 function getImageSourceFromControlRow_(controlRow) {
@@ -2615,7 +2672,7 @@ function getImageSourceFromControlRow_(controlRow) {
     return '직접업로드';
   }
 
-  var imageSource = String(controlRow.values[12] || '').trim();
+  var imageSource = String(controlRow.values[9] || '').trim();
   if (imageSource === '자동생성') return '자동생성';
   if (imageSource === '이미지생성') return '이미지생성';
   return '직접업로드';
@@ -2647,12 +2704,6 @@ function buildPhotoGuideText_(finalData) {
   return photoGuides.join('\n');
 }
 
-function updateControlSheetImageMeta_(sheet, rowIndex, folderUrl, photoGuideText) {
-  if (!sheet || !rowIndex) return;
-  sheet.getRange(rowIndex, 10).setValue(folderUrl || '');
-  sheet.getRange(rowIndex, 11).setValue(photoGuideText || '');
-}
-
 /**
  * 완전 통합 처리 함수 - 전처리 → SEO → 사진 매핑 → HTML 변환 → Blogger 발행
  */
@@ -2662,30 +2713,38 @@ function runGenerateOnly() {
     runFullPipelineOneByOne();
 
     var generatedFile = getLatestGeneratedSeoFile_();
-    if (generatedFile) {
-      Logger.log('📄 runGenerateOnly 생성 파일명: ' + generatedFile.getName());
-      Logger.log('📁 runGenerateOnly 저장 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
-
-      var generatedJson = JSON.parse(generatedFile.getBlob().getDataAsString());
-      var imagenPrompts = generateImagenPrompts_(
-        generatedJson.content,
-        extractTitleFromContent_(generatedJson.content, generatedJson.baseName),
-        generatedJson.highlight_keywords || []
-      );
-
-      if (imagenPrompts) {
-        generatedJson.imagen_prompts = imagenPrompts;
-        generatedFile.setContent(JSON.stringify(generatedJson, null, 2));
-        Logger.log('💾 final_seo.json imagen_prompts 저장 완료: ' + generatedFile.getName());
-        Logger.log('🖼️ 저장된 prompt1: ' + (imagenPrompts.prompt1 || '없음'));
-        Logger.log('🖼️ 저장된 prompt2: ' + (imagenPrompts.prompt2 || '없음'));
-      } else {
-        Logger.log('⚠️ imagen_prompts 생성 실패 또는 미생성');
-      }
-    } else {
+    if (!generatedFile) {
       Logger.log('⚠️ runGenerateOnly 완료 후 생성된 _final_seo.json 파일을 찾지 못했습니다.');
       Logger.log('📁 확인 대상 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
+      toast_('글 생성 실패: SEO 결과 파일이 생성되지 않았습니다. 키워드/API 키를 확인하세요.');
+      return {
+        success: false,
+        status: 'generate_failed',
+        error: '_final_seo.json not found'
+      };
     }
+
+    Logger.log('📄 runGenerateOnly 생성 파일명: ' + generatedFile.getName());
+    Logger.log('📁 runGenerateOnly 저장 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
+
+    var generatedJson = JSON.parse(generatedFile.getBlob().getDataAsString());
+    var imagenPrompts = generateImagenPrompts_(
+      generatedJson.content,
+      extractTitleFromContent_(generatedJson.content, generatedJson.baseName),
+      generatedJson.highlight_keywords || []
+    );
+
+    if (imagenPrompts) {
+      generatedJson.imagen_prompts = imagenPrompts;
+      generatedFile.setContent(JSON.stringify(generatedJson, null, 2));
+      Logger.log('💾 final_seo.json imagen_prompts 저장 완료: ' + generatedFile.getName());
+      Logger.log('🖼️ 저장된 prompt1: ' + (imagenPrompts.prompt1 || '없음'));
+      Logger.log('🖼️ 저장된 prompt2: ' + (imagenPrompts.prompt2 || '없음'));
+    } else {
+      Logger.log('⚠️ imagen_prompts 생성 실패 또는 미생성');
+    }
+
+    moveSourceFileToProcessedFolder_(generatedJson.source_file_id);
 
     Logger.log('✅ 발행 준비 완료. runPublishOnly() 실행하세요');
     toast_('발행 준비 완료. runPublishOnly() 실행하세요');
@@ -2718,18 +2777,16 @@ function runPublishOnly() {
 
     var controlRow = getPublishControlRow_(sheet);
     if (!controlRow) {
-      Logger.log('⛔ 발행 가능한 행 없음 (F열 미설정 또는 L열 URL 이미 존재 — 중복 발행 차단)');
+      Logger.log('⛔ 발행 가능한 행 없음 (F열 미설정 또는 I열 URL 이미 존재 — 중복 발행 차단)');
       toast_('발행할 행이 없습니다. 이미 발행 완료되었거나 F열 설정을 확인하세요.');
       return { success: false, status: 'no_target' };
     }
 
     var publishMode = String(controlRow.values[5] || '').trim();
-    var isApproved = controlRow.values[7] === true;
-    var scheduleRaw = controlRow.values[8];
-    var existingImageFolderId = getImageFolderIdFromControlRow_(controlRow);
+    var scheduleRaw = controlRow.values[7];
     var imageSource = getImageSourceFromControlRow_(controlRow);
 
-    // I열 예약시간 파싱 → ISO 8601 변환
+    // H열 예약시간 파싱 → ISO 8601 변환
     var scheduledTime = null;
     if (scheduleRaw) {
       var scheduleDate = (scheduleRaw instanceof Date) ? scheduleRaw : new Date(scheduleRaw);
@@ -2740,10 +2797,8 @@ function runPublishOnly() {
 
     Logger.log('📋 발행 제어 행: ' + controlRow.rowIndex + '행');
     Logger.log('📢 발행 모드: ' + publishMode);
-    Logger.log('☑️ 승인 체크: ' + (isApproved ? 'true' : 'false'));
     Logger.log('🖼️ 이미지 소스: ' + imageSource);
-    Logger.log('🖼️ 기존 이미지 폴더 ID: ' + (existingImageFolderId || '없음'));
-    Logger.log('🕐 I열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
+    Logger.log('🕐 H열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
     Logger.log('🕐 계산된 예약시간 (ISO 8601): ' + (scheduledTime || '즉시 발행'));
 
     Logger.log("1️⃣ 최신 SEO 결과 조회");
@@ -2764,7 +2819,6 @@ function runPublishOnly() {
 
     var finalData = JSON.parse(seoFile.getBlob().getDataAsString());
     var title = extractTitleFromContent_(finalData.content, finalData.baseName);
-    var photoGuideText = buildPhotoGuideText_(finalData);
     var placeholders = extractPhotoPlaceholders_(finalData.content);
     var imageFolder = null;
     var mappedContent;
@@ -2785,10 +2839,7 @@ function runPublishOnly() {
     Logger.log("2️⃣ 이미지 폴더 생성 및 시트 기록");
     if (imageSource === '자동생성') {
       Logger.log('🧠 자동생성 모드: Unsplash 이미지 검색을 사용합니다.');
-      imageFolder = existingImageFolderId
-        ? DriveApp.getFolderById(existingImageFolderId)
-        : createImageFolderForPost_(title);
-      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+      imageFolder = createImageFolderForPost_(title);
       downloadedPhotos = downloadUnsplashPhotosToFolder_(finalData.content, finalData, title, imageFolder);
       Logger.log('🧾 Unsplash 저장 결과 수: ' + downloadedPhotos.length);
       if (placeholders.length > 0 && downloadedPhotos.length === 0) {
@@ -2796,10 +2847,7 @@ function runPublishOnly() {
       }
     } else if (imageSource === '이미지생성') {
       Logger.log('🎨 이미지생성 모드: Gemini 이미지 생성 사용');
-      imageFolder = existingImageFolderId
-        ? DriveApp.getFolderById(existingImageFolderId)
-        : createImageFolderForPost_(title);
-      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+      imageFolder = createImageFolderForPost_(title);
 
       var imagenPrompts = finalData.imagen_prompts || {};
       var prompt1 = String(imagenPrompts.prompt1 || '').trim();
@@ -2812,8 +2860,8 @@ function runPublishOnly() {
         throw new Error('final_seo.json의 imagen_prompts가 비어 있습니다. runGenerateOnly()를 다시 실행해 prompt1/prompt2를 생성하세요.');
       }
 
-      var generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), '01.png');
-      var generatedImage2 = generateImageWithGemini_(prompt2, imageFolder.getId(), '02.png');
+      var generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), title, 1);
+      var generatedImage2 = generateImageWithGemini_(prompt2, imageFolder.getId(), title, 2);
 
       if (!generatedImage1 || !generatedImage2) {
         throw new Error('Gemini 이미지 생성 실패: 2장의 이미지가 모두 생성되지 않았습니다.');
@@ -2825,11 +2873,8 @@ function runPublishOnly() {
       Logger.log('🔗 01.png URL: ' + generatedImage1.publicUrl);
       Logger.log('🔗 02.png URL: ' + generatedImage2.publicUrl);
     } else {
-      Logger.log('🖼️ 직접업로드 모드: J열 폴더 이미지를 사용합니다.');
-      imageFolder = existingImageFolderId
-        ? DriveApp.getFolderById(existingImageFolderId)
-        : createImageFolderForPost_(title);
-      updateControlSheetImageMeta_(sheet, controlRow.rowIndex, imageFolder.getUrl(), photoGuideText);
+      Logger.log('🖼️ 직접업로드 모드: 임시 이미지 폴더를 생성합니다.');
+      imageFolder = createImageFolderForPost_(title);
     }
 
     Logger.log("3️⃣ 사진 매핑");
@@ -2845,21 +2890,8 @@ function runPublishOnly() {
     Logger.log("4️⃣ Blogger HTML 변환");
     htmlContent = convertToBloggerHTML(mappedContent, title, labels);
 
-    if (publishMode === '수동승인' && !isApproved) {
-      updatePublishStatus_(sheet, controlRow.rowIndex, '승인대기');
-      Logger.log('⏸️ 수동승인 모드이며 H열 체크박스가 해제되어 있어 발행을 보류합니다.');
-      toast_('수동승인 대기 상태입니다. H열 체크 후 다시 실행하세요.');
-      return {
-        success: true,
-        mode: publishMode,
-        approved: false,
-        title: title,
-        status: '승인대기'
-      };
-    }
-
     Logger.log("5️⃣ Blogger 발행");
-    postUrl = publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime);
+    postUrl = publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime, finalData.highlight_keywords || []);
 
     Logger.log("6️⃣ 시트 기록 업데이트");
     updateControlSheetAfterPublish(title, postUrl, controlRow.rowIndex);
@@ -2880,7 +2912,6 @@ function runPublishOnly() {
     return {
       success: true,
       mode: publishMode,
-      approved: true,
       title: title,
       postUrl: postUrl,
       rowIndex: controlRow.rowIndex
@@ -4265,6 +4296,26 @@ function clearProcessedHistory() {
   }
 }
 
+function resetForNewPost() {
+  var sheet = SpreadsheetApp.openById(CONTROL_SHEET_ID).getSheets()[0];
+  sheet.getRange('G2').clearContent();
+  sheet.getRange('H2').clearContent();
+  sheet.getRange('I2').clearContent();
+
+  var props = PropertiesService.getScriptProperties();
+  var allProps = props.getProperties();
+  var deletedCount = 0;
+  for (var key in allProps) {
+    if (key.indexOf('processed_') === 0) {
+      props.deleteProperty(key);
+      deletedCount++;
+    }
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('초기화 완료! 새 파일을 업로드하고 설정을 입력하세요.', '대산 블로그', 5);
+  Logger.log('✅ 초기화 완료 (처리이력 삭제: ' + deletedCount + '개, API 키 유지)');
+}
+
 /**
  * baseName 기준으로 특정 파일의 처리 이력만 삭제
  */
@@ -5607,7 +5658,7 @@ function getNextImagenFileName_(folder) {
   return ('0' + (maxNumber + 1)).slice(-2) + '.png';
 }
 
-function generateImageWithGemini_(prompt, folderId, fileName) {
+function generateImageWithGemini_(prompt, folderId, title, index) {
   Logger.log("🎨 === Gemini 이미지 생성 시작 ===");
 
   try {
@@ -5617,7 +5668,15 @@ function generateImageWithGemini_(prompt, folderId, fileName) {
     }
 
     var targetFolderId = folderId || '1wpVU90Cg7DZ1G8syZK4V1CxH0PuVV5oT';
-    var resolvedFileName = fileName || 'image_' + new Date().getTime() + '.png';
+    var timestamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss');
+    var safeTitle = String(title || 'image')
+      .substring(0, 10)
+      .replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    if (!safeTitle) {
+      safeTitle = 'image';
+    }
+    var resolvedIndex = (typeof index === 'undefined' || index === null || index === '') ? 1 : index;
+    var resolvedFileName = timestamp + '_' + safeTitle + '_0' + String(resolvedIndex) + '.png';
     var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=" + apiKey;
     var payload = {
       contents: [{
@@ -6786,7 +6845,7 @@ function testConvertToBloggerHTML() {
  * @param {string[]} labels - 태그 목록 (배열)
  * @return {string} 발행된 글 URL
  */
-function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime) {
+function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime, highlightKeywords) {
   var isDraft = true;
   var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID + '/posts/' + (isDraft ? '?isDraft=true' : '');
 
@@ -6794,6 +6853,10 @@ function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime
     labels = (labels || [])
       .filter(function(l) { return typeof l === 'string' && l.trim() !== ''; })
       .map(function(l) { return l.trim().substring(0, 200); });
+    var category = detectCategory_(labels, highlightKeywords || [], title);
+    if (labels.indexOf(category) === -1) {
+      labels.push(category);
+    }
 
     // 1. Blogger API v3 POST 페이로드 구성
     var payload = {
@@ -6864,8 +6927,8 @@ function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime
  */
 function dryRunPublish() {
   var scenarios = [
-    { label: '시나리오 1 - I열 비움', scheduleRaw: '' },
-    { label: '시나리오 2 - I열 = 2026-05-10 10:00', scheduleRaw: '2026-05-10 10:00' }
+    { label: '시나리오 1 - H열 비움', scheduleRaw: '' },
+    { label: '시나리오 2 - H열 = 2026-05-10 10:00', scheduleRaw: '2026-05-10 10:00' }
   ];
 
   scenarios.forEach(function(scenario) {
@@ -6881,7 +6944,7 @@ function dryRunPublish() {
       }
     }
 
-    Logger.log('🕐 I열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
+    Logger.log('🕐 H열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
 
     if (!scheduledTime) {
       Logger.log('📅 예약시간: 즉시 발행');
@@ -6931,10 +6994,9 @@ function updateControlSheetAfterPublish(title, postUrl, rowIndex) {
     }
 
     sheet.getRange(rowIndex, 7).setValue('발행완료');
-    sheet.getRange(rowIndex, 9).setValue(Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'));
-    sheet.getRange(rowIndex, 12).setValue(postUrl);
+    sheet.getRange(rowIndex, 9).setValue(postUrl);
     
-    Logger.log('📊 컨트롤 시트 업데이트 완료 (행: ' + rowIndex + ', 상태: G열, 발행시간: I열, URL: L열)');
+    Logger.log('📊 컨트롤 시트 업데이트 완료 (행: ' + rowIndex + ', 상태: G열, URL: I열)');
     toast_('Blogger 발행 완료 및 시트 업데이트');
 
   } catch (e) {
