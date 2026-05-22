@@ -239,6 +239,65 @@ function detectCategory_(seoKeywords, highlightKeywords, title) {
   return '기타';
 }
 
+function getRelatedBloggerPostsByCategory_(category, currentTitle, maxResults) {
+  var normalizedCategory = String(category || '').trim();
+  var normalizedTitle = String(currentTitle || '').trim();
+  var limit = maxResults || 3;
+
+  if (!normalizedCategory) {
+    Logger.log('⚠️ 관련 글 조회 스킵: 카테고리가 비어 있습니다.');
+    return [];
+  }
+
+  try {
+    var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID +
+      '/posts?status=LIVE&fetchBodies=false&labels=' + encodeURIComponent(normalizedCategory) +
+      '&maxResults=' + encodeURIComponent(String(limit + 3));
+
+    var response = UrlFetchApp.fetch(apiUrl, {
+      method: 'get',
+      headers: {
+        Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+      },
+      muteHttpExceptions: true
+    });
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    Logger.log('📡 관련 글 조회 응답 코드: ' + responseCode + ' / 카테고리=' + normalizedCategory);
+    if (responseCode < 200 || responseCode >= 300) {
+      Logger.log('⚠️ 관련 글 조회 실패: ' + responseText.substring(0, 200));
+      return [];
+    }
+
+    var responseData = JSON.parse(responseText);
+    var items = responseData.items || [];
+    var relatedPosts = [];
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var itemTitle = String(item.title || '').trim();
+      var itemUrl = String(item.url || '').trim();
+
+      if (!itemTitle || !itemUrl) continue;
+      if (itemTitle === normalizedTitle) continue;
+
+      relatedPosts.push({
+        title: itemTitle,
+        url: itemUrl
+      });
+
+      if (relatedPosts.length >= limit) break;
+    }
+
+    Logger.log('🔗 관련 글 추출 완료: ' + relatedPosts.length + '개');
+    return relatedPosts;
+  } catch (error) {
+    Logger.log('⚠️ getRelatedBloggerPostsByCategory_ 오류: ' + error.message);
+    return [];
+  }
+}
+
 // 불릿 비율 계산
 function calcBulletRatio(html) {
   var text = stripTags(html);
@@ -1354,6 +1413,24 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '- 공감 유발 상황 묘사\n' +
                '  예) "새벽에 베란다 나갈 때마다 발에 걸리는 그 돌출 부분..."\n' +
                '- 절대 배경 설명이나 주제 소개로 시작하지 마라\n\n' +
+               '검색 스니펫 최적화 원칙 (매우 중요):\n' +
+               '- 첫 문단은 검색 결과 설명문으로 잘려도 이해되게 작성하라\n' +
+               '- 첫 문단 길이는 120~160자 내외를 목표로 하라\n' +
+               '- 첫 문단 안에 핵심 SEO 키워드 1개 이상을 자연스럽게 포함하라\n' +
+               '- 첫 문단 안에 글의 주제, 핵심 이점, 적용 대상이 드러나야 한다\n' +
+               '- 첫 문단은 문장형 요약으로 작성하고, 질문만 던지고 끝내지 마라\n' +
+               '- 첫 문단에 인용문, 대사, CTA, 과도한 감탄 표현을 넣지 마라\n' +
+               '- 첫 문단 다음 문단부터 사례, 인용문, 감정 표현을 확장하라\n\n' +
+               'FAQ 생성 원칙 (매우 중요):\n' +
+               '- 글 마지막 부분에 FAQ 2~3개를 반드시 생성하라\n' +
+               '- FAQ는 본문 핵심 내용만 기반으로 만들어라\n' +
+               '- 전문 용어를 피하고 누구나 바로 이해 가능한 표현을 사용하라\n' +
+               '- 각 답변은 1~2문장으로 짧고 명확하게 작성하라\n' +
+               '- FAQ는 반드시 아래 형식을 지켜라:\n' +
+               '- Q. 질문 내용\n' +
+               '- A. 답변 내용\n' +
+               '- 각 질문 바로 아래에 해당 답변 1개만 배치하라\n' +
+               '- FAQ는 관련 글 섹션보다 앞에 오도록 글 말미에 배치하라\n\n' +
                '인간적 문체 원칙:\n' +
                '- 짧은 문장(10자 이하)과 긴 문장(40자 이상) 혼합\n' +
                '- 독자에게 직접 말하는 2인칭 사용 "여러분", "~하셨나요?"\n' +
@@ -1373,6 +1450,15 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '- "결론적으로", "이처럼", "따라서"로 문단 시작\n' +
                '- 모든 소제목을 명사형으로 끝내기\n' +
                '- 숫자 나열 구조 남용 (3가지, 5가지 등)\n\n' +
+               '건축자재 약어 해석 규칙 (매우 중요):\n' +
+               '- 건축자재 약어를 임의로 해석하거나 확장하지 마라\n' +
+               '- 소스 원문에 풀네임이 없으면 약어 그대로 사용하라\n' +
+               '- 본문에 없는 자재명 풀네임을 모델 지식으로 보완하지 마라\n' +
+               '- 자재명 오류 방지를 위해 아래 예시를 반드시 참고하라:\n' +
+               '- PF = Phenolic Foam (Polyurethane Foam 아님)\n' +
+               '- PIR = Polyisocyanurate\n' +
+               '- XPS = Extruded Polystyrene\n' +
+               '- EPS = Expanded Polystyrene\n\n' +
                '행동 유도:\n' +
                '- CTA 스타일: ' + (templateInfo.cta_style || '문의 유도') + '\n' +
                '- SEO 전략: ' + (templateInfo.seo_strategy || '키워드 중심');
@@ -1432,7 +1518,8 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '6. **SEO 최적화**: SEO 키워드들을 자연스럽게 배치 (특히 제목에 포함)\n' +
              '7. **사진 플레이스홀더**: 각 섹션에 관련성 높은 사진 반드시 포함하고 설명은 영어로 작성\n' +
              '8. **차별화된 관점**: 강조 키워드를 중심으로 한 독특한 시각 제시\n' +
-             '9. **행동 유도**: ' + (templateInfo.cta_style || '문의 유도') + ' 방식으로 마무리\n\n' +
+             '9. **행동 유도**: ' + (templateInfo.cta_style || '문의 유도') + ' 방식으로 마무리\n' +
+             '10. **FAQ 추가**: 글 마지막 부분에 Q. / A. 형식 FAQ 2~3개를 반드시 포함\n\n' +
              '## 🚫 절대 금지사항\n' +
              '- 파일명을 제목으로 사용하지 마세요\n' +
              '- "[Korean (auto-generated)]" 같은 메타 정보 포함 금지\n' +
@@ -1450,6 +1537,8 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '[한 줄 부제목]\n\n' +
              '## [첫 번째 섹션 제목]\n' +
              '[내용]...\n\n' +
+             'Q. [질문]\n' +
+             'A. [답변]\n\n' +
              '완전히 새로운 ' + (templateInfo.name || '전문') + ' 글만 출력하고, 별도의 설명은 포함하지 마세요.';
 
   return {
@@ -2825,6 +2914,8 @@ function runPublishOnly() {
     var generatedImages = [];
     var htmlContent;
     var labels;
+    var category;
+    var relatedPosts;
     var postUrl;
     var downloadedPhotos = [];
 
@@ -2838,15 +2929,7 @@ function runPublishOnly() {
 
     Logger.log("2️⃣ 이미지 폴더 생성 및 시트 기록");
     if (imageSource === '자동생성') {
-      Logger.log('🧠 자동생성 모드: Unsplash 이미지 검색을 사용합니다.');
-      imageFolder = createImageFolderForPost_(title);
-      downloadedPhotos = downloadUnsplashPhotosToFolder_(finalData.content, finalData, title, imageFolder);
-      Logger.log('🧾 Unsplash 저장 결과 수: ' + downloadedPhotos.length);
-      if (placeholders.length > 0 && downloadedPhotos.length === 0) {
-        throw new Error('Unsplash 이미지 저장 0건: 플레이스홀더는 존재하지만 Drive 저장에 실패했습니다. 로그의 검색어/응답 코드를 확인하세요.');
-      }
-    } else if (imageSource === '이미지생성') {
-      Logger.log('🎨 이미지생성 모드: Gemini 이미지 생성 사용');
+      Logger.log('🎨 자동생성 모드: Gemini 이미지 생성 사용');
       imageFolder = createImageFolderForPost_(title);
 
       var imagenPrompts = finalData.imagen_prompts || {};
@@ -2872,13 +2955,21 @@ function runPublishOnly() {
       Logger.log('✅ Gemini 이미지 2장 생성 완료');
       Logger.log('🔗 01.png URL: ' + generatedImage1.publicUrl);
       Logger.log('🔗 02.png URL: ' + generatedImage2.publicUrl);
+    } else if (imageSource === '이미지생성') {
+      Logger.log('🧠 이미지생성 모드: Unsplash 이미지 검색을 사용합니다.');
+      imageFolder = createImageFolderForPost_(title);
+      downloadedPhotos = downloadUnsplashPhotosToFolder_(finalData.content, finalData, title, imageFolder);
+      Logger.log('🧾 Unsplash 저장 결과 수: ' + downloadedPhotos.length);
+      if (placeholders.length > 0 && downloadedPhotos.length === 0) {
+        throw new Error('Unsplash 이미지 저장 0건: 플레이스홀더는 존재하지만 Drive 저장에 실패했습니다. 로그의 검색어/응답 코드를 확인하세요.');
+      }
     } else {
       Logger.log('🖼️ 직접업로드 모드: 임시 이미지 폴더를 생성합니다.');
       imageFolder = createImageFolderForPost_(title);
     }
 
     Logger.log("3️⃣ 사진 매핑");
-    if (imageSource === '이미지생성') {
+    if (imageSource === '자동생성') {
       mappedContent = mapGeneratedImageUrlsToPlaceholders_(finalData.content, generatedImages);
     } else {
       mappedContent = mapPhotosToPlaceholders(finalData.content, imageFolder.getId(), finalData, title);
@@ -2887,8 +2978,10 @@ function runPublishOnly() {
     labels = (finalData.seo_keywords || [])
       .filter(function(l) { return typeof l === 'string' && l.trim() !== ''; })
       .map(function(l) { return l.trim().substring(0, 50); });
+    category = detectCategory_(labels, finalData.highlight_keywords || [], title);
+    relatedPosts = getRelatedBloggerPostsByCategory_(category, title, 3);
     Logger.log("4️⃣ Blogger HTML 변환");
-    htmlContent = convertToBloggerHTML(mappedContent, title, labels);
+    htmlContent = convertToBloggerHTML(mappedContent, title, labels, relatedPosts);
 
     Logger.log("5️⃣ Blogger 발행");
     postUrl = publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime, finalData.highlight_keywords || []);
@@ -6621,9 +6714,10 @@ function testGitHubImageUpload() {
  * @param {string} docContent - 사진 매핑(URL 치환)이 완료된 글 본문
  * @param {string} title - 글 제목
  * @param {string[]=} seoKeywords - SEO 키워드 목록
+ * @param {{title:string,url:string}[]=} relatedPosts - 관련 글 목록
  * @return {string} Blogger 에디터용 HTML 코드
  */
-function convertToBloggerHTML(docContent, title, seoKeywords) {
+function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
   if (!docContent) return "";
   
   // HTML 특수문자 이스케이프 함수
@@ -6654,7 +6748,7 @@ function convertToBloggerHTML(docContent, title, seoKeywords) {
   var buildImageHtml = function(url, description) {
     var safeDescription = escapeHtml(description || '관련 이미지');
     return "<div style=\"width:100%; margin:2em 0;\">\n" +
-      "  <img src=\"" + url + "\" style=\"width:100%; height:auto; display:block; border-radius:8px;\">\n" +
+      "  <img src=\"" + url + "\" alt=\"" + safeDescription + "\" style=\"width:100%; height:auto; display:block; border-radius:8px;\">\n" +
       "  <p style=\"text-align:center; color:#888; font-size:0.85em; margin-top:0.5em;\">▲ " + safeDescription + " (출처: (주)대산 기술팀)</p>\n" +
       "</div>\n";
   };
@@ -6676,6 +6770,43 @@ function convertToBloggerHTML(docContent, title, seoKeywords) {
       "</div>\n";
   };
 
+  var buildRelatedPostsHtml = function(posts) {
+    if (!posts || posts.length === 0) return "";
+
+    var htmlParts = [];
+    htmlParts.push("<div style=\"margin-top:2.5em; padding:1.5em; background:#f7f9fc; border:1px solid #d9e3ee; border-radius:8px;\">");
+    htmlParts.push("  <h2 style=\"font-size:1.3em; font-weight:500; margin:0 0 0.8em; color:#1a1a1a;\">관련 글</h2>");
+    htmlParts.push("  <ul style=\"margin:0; padding-left:1.2em; color:#2c5f8a;\">");
+    for (var rp = 0; rp < posts.length; rp++) {
+      var post = posts[rp];
+      htmlParts.push("    <li style=\"margin:0.45em 0;\"><a href=\"" + escapeHtml(post.url) + "\" style=\"color:#2c5f8a; text-decoration:none; line-height:1.7;\">" + escapeHtml(post.title) + "</a></li>");
+    }
+    htmlParts.push("  </ul>");
+    htmlParts.push("</div>\n");
+    return htmlParts.join("\n");
+  };
+
+  var buildFaqHtml = function(faqItems) {
+    if (!faqItems || faqItems.length === 0) return "";
+
+    var htmlParts = [];
+    htmlParts.push("<div style=\"margin-top:2.5em;\">");
+    htmlParts.push("  <h2 style=\"font-size:1.3em; font-weight:500; margin:0 0 0.8em; color:#1a1a1a;\">자주 묻는 질문</h2>");
+    htmlParts.push("  <div itemscope itemtype=\"https://schema.org/FAQPage\">");
+    for (var fq = 0; fq < faqItems.length; fq++) {
+      var item = faqItems[fq];
+      htmlParts.push("    <div itemscope itemprop=\"mainEntity\" itemtype=\"https://schema.org/Question\" style=\"margin:0 0 1.1em; padding:1rem 1.2rem; background:#f7f9fc; border:1px solid #d9e3ee; border-radius:8px;\">");
+      htmlParts.push("      <h3 itemprop=\"name\" style=\"font-size:1.05em; margin:0 0 0.55em; color:#2c5f8a; font-weight:500;\">Q. " + escapeHtml(item.question) + "</h3>");
+      htmlParts.push("      <div itemscope itemprop=\"acceptedAnswer\" itemtype=\"https://schema.org/Answer\">");
+      htmlParts.push("        <p itemprop=\"text\" style=\"margin:0; color:#333; line-height:1.8;\">A. " + escapeHtml(item.answer) + "</p>");
+      htmlParts.push("      </div>");
+      htmlParts.push("    </div>");
+    }
+    htmlParts.push("  </div>");
+    htmlParts.push("</div>\n");
+    return htmlParts.join("\n");
+  };
+
   var html = "";
   var tagCount = { h1: 0, h2: 0, p: 0, img: 0, strong: 0, div: 0 };
   
@@ -6694,6 +6825,7 @@ function convertToBloggerHTML(docContent, title, seoKeywords) {
   var insertedCta = false;
   var renderedH2 = 0;
   var ctaKeyword = seoKeywords && seoKeywords.length > 0 ? seoKeywords[0] : '건축자재';
+  var faqItems = [];
   
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
@@ -6785,6 +6917,19 @@ function convertToBloggerHTML(docContent, title, seoKeywords) {
       html += "</div>\n";
       tagCount.div++;
     }
+    else if (/^Q\.\s+/.test(line)) {
+      var answerLine = '';
+      var nextLine = i + 1 < lines.length ? String(lines[i + 1] || '').trim() : '';
+      if (/^A\.\s+/.test(nextLine)) {
+        answerLine = nextLine.replace(/^A\.\s+/, '').trim();
+        i++;
+      }
+
+      faqItems.push({
+        question: line.replace(/^Q\.\s+/, '').trim(),
+        answer: answerLine || '자세한 내용은 본문을 참고하세요.'
+      });
+    }
     // 일반 문단 처리
     else {
       var processedText = renderInlineText(line, tagCount);
@@ -6795,6 +6940,16 @@ function convertToBloggerHTML(docContent, title, seoKeywords) {
 
   if (!insertedCta && totalH2 === 0) {
     html += buildCtaHtml(ctaKeyword);
+    tagCount.div++;
+  }
+
+  if (faqItems.length > 0) {
+    html += buildFaqHtml(faqItems.slice(0, 3));
+    tagCount.div++;
+  }
+
+  if (relatedPosts && relatedPosts.length > 0) {
+    html += buildRelatedPostsHtml(relatedPosts);
     tagCount.div++;
   }
 
