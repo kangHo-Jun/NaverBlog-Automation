@@ -82,6 +82,15 @@ function toast_(msg) {
   }
 }
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * 저장된 Claude API 키를 가져옵니다.
  */
@@ -1281,20 +1290,20 @@ function generateTemplatePhotoGuide(contentOutline, seoKeywords, photoGuideType)
   var photoGuides = [];
   var photoIndex = 1;
   var genericOutlineScenes = [
-    'construction worker installing drywall',
-    'modern interior wall finishing detail',
-    'natural gypsum board close-up texture',
-    'bright living room renovation progress',
-    'worker measuring wall alignment indoors',
-    'clean minimalist interior material sample'
+    '건식 벽체 시공 작업 사진',
+    '실내 벽체 마감 디테일 사진',
+    '천연 석고보드 질감 상세 사진',
+    '거실 리모델링 진행 사진',
+    '실내 벽체 수평 측정 사진',
+    '실내 자재 샘플 비교 사진'
   ];
   var genericKeywordScenes = [
-    'indoor air pollution symptoms family',
-    'eco-friendly building material texture close-up',
-    'home renovation tools and materials setup',
-    'before and after interior wall comparison',
-    'dust-free construction workspace detail',
-    'healthy modern home interior atmosphere'
+    '실내 공기질 문제 상황 사진',
+    '친환경 건축자재 질감 확대 사진',
+    '리모델링 공구 및 자재 준비 사진',
+    '실내 벽체 전후 비교 사진',
+    '먼지 적은 시공 환경 사진',
+    '건강한 실내 공간 분위기 사진'
   ];
   
   // 템플릿별 사진 유형 분석
@@ -1302,27 +1311,27 @@ function generateTemplatePhotoGuide(contentOutline, seoKeywords, photoGuideType)
   
   // 기본 사진 추가
   if (photoTypes.indexOf('제품외관') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": natural gypsum board close-up texture]");
+    photoGuides.push("[사진 " + photoIndex + ": 천연 석고보드 질감 상세 사진]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('나란히비교') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": before and after wall renovation comparison]");
+    photoGuides.push("[사진 " + photoIndex + ": 벽체 리모델링 전후 비교 사진]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('도구준비') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": required tools and materials setup]");
+    photoGuides.push("[사진 " + photoIndex + ": 시공 도구 및 자재 준비 사진]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('트렌드사례') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": modern interior design trend example]");
+    photoGuides.push("[사진 " + photoIndex + ": 최신 인테리어 적용 사례 사진]");
     photoIndex++;
   }
   
   if (photoTypes.indexOf('문제상황') !== -1) {
-    photoGuides.push("[사진 " + photoIndex + ": indoor air pollution symptoms family]");
+    photoGuides.push("[사진 " + photoIndex + ": 실내 공기질 문제 상황 사진]");
     photoIndex++;
   }
   
@@ -1398,11 +1407,11 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '스타일 가이드라인:\n' + styleDescription + '\n' +
                '사진 삽입 원칙:\n' +
                '- 템플릿 특화 사진: ' + (templateInfo.photo_guide_type || '일반 사진') + '\n' +
-               '- [사진 X: English description] 형태로 정확히 표기\n' +
-               '- 사진 플레이스홀더 설명은 반드시 영어로 작성하라\n' +
-               '- 예) [사진1: slim window frame close-up]\n' +
-               '- 예) [사진2: modern interior living room window view]\n' +
-               '- 예) [사진3: before and after window replacement comparison]\n' +
+               '- [사진 X: 한글 설명] 형태로 정확히 표기\n' +
+               '- 사진 플레이스홀더 설명은 반드시 한글로 작성하라\n' +
+               '- 예) [사진1: 슬림 창호 프레임 상세 사진]\n' +
+               '- 예) [사진2: 거실 창호 적용 전경 사진]\n' +
+               '- 예) [사진3: 창호 교체 전후 비교 사진]\n' +
                '- 전체 글에 최소 8-12개의 사진 플레이스홀더 포함\n\n' +
                '오프닝 원칙 (매우 중요):\n' +
                '- 첫 문단은 반드시 아래 중 하나로 시작하라:\n' +
@@ -1459,6 +1468,130 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '- PIR = Polyisocyanurate\n' +
                '- XPS = Extruded Polystyrene\n' +
                '- EPS = Expanded Polystyrene\n\n' +
+               '[가격 표현 규칙]\n' +
+               '- 제공 자료에 없는 원 단위 가격 생성 금지\n' +
+               '- 가격 비교는 "상대적으로 낮음/중간/높음", "초기 비용은 높을 수 있음"으로 표현\n' +
+               '- % 차이는 제공 자료에 명시된 경우에만 사용\n\n' +
+               '[용어 현지화 규칙]\n' +
+               '- 영어 참고글 직역 금지\n' +
+               '- 국내 건축자재 현장 용어로 변환\n' +
+               '- LVB, LVL, MDF, OSB, KS, E0, T, mm, MPa 약어는 그대로 유지\n\n' +
+               '[비교표 출력 규칙]\n' +
+               '- 두 개 이상 자재/성능/용도 비교 시 반드시 Markdown 테이블 출력\n' +
+               '- 헤더 행, 구분선 행, 본문 행 모두 포함\n' +
+               '- 테이블 앞뒤 불필요한 빈 줄 금지\n' +
+               '- 최소 4개 이상 비교 항목\n' +
+               '- 제공 자료 없는 수치 임의 생성 금지\n' +
+               '- 수치 근거 없으면 "상대적으로 낮음/높음/조건 확인 필요"로 표현\n\n' +
+               '[SEO 키워드 자연어 규칙]\n' +
+               '- 지역명+자재명 키워드는 자연어로 풀어써라\n' +
+               '- 예: "안양 석고보드" → "안양에서 석고보드를 찾는 경우"\n' +
+               '- title, meta_description, tags는 원문 사용 가능\n' +
+               '- 본문에서는 자연어 변형 우선\n' +
+               '- SEO 키워드를 고유명사처럼 반복하지 마라\n\n' +
+               '이미지 전략 및 프롬프트 생성 규칙 (매우 중요):\n' +
+               '- 본문 생성 완료 후 반드시 content_type, visual_strategy, imagen_prompts, image2_table_data, fact_safety_check를 JSON으로 함께 출력하라\n' +
+               '- 1단계: 아래 9개 유형 중 primary와 secondary를 각각 1개씩 판단하라\n' +
+               '  자재비교: 두 자재 이상 구조/성능 비교\n' +
+               '  시공실수: 실수/오류/주의 언급\n' +
+               '  성능설명: 수치/원리/성능 중심\n' +
+               '  구매가이드: 선택기준/추천 중심\n' +
+               '  대산브랜딩: 대산 유통/견적/AI 중심\n' +
+               '  현장문제해결: 현장 하자/문제 원인 분석\n' +
+               '  규격수치설명: 두께/규격/등급 수치 중심\n' +
+               '  비용물류판단: 비용/발주/납기/물류 중심\n' +
+               '  기준규정설명: 방화/인증/KS/법규 중심\n' +
+               '- content_type.reason에는 위 판단 근거를 1문장으로 적어라\n' +
+               '- 2단계: primary와 secondary를 바탕으로 visual_strategy를 먼저 설계하라\n' +
+               '- visual_strategy.image1과 image2에는 반드시 role, goal, must_include, avoid를 채워라\n' +
+               '- role은 이미지의 기능, goal은 독자 교육 목표를 간결히 적어라\n' +
+               '- must_include와 avoid는 각각 2개 이상 구체 요소를 적어라\n' +
+               '- image1 역할 결정 규칙:\n' +
+               '  1. content_type.primary 기준 image1_role_map 값을 그대로 사용한다\n' +
+               '  2. Claude가 image1.role을 임의로 창작하거나 변경하지 못한다\n' +
+               '  3. secondary_type은 소재/현장조건/비교항목 보강에만 사용한다\n' +
+               '- image1_role_map:\n' +
+               '  자재비교 -> 재료 구조/적층 차이 단면도 (side by side 레이아웃 필수, 결 방향 표현 유지)\n' +
+               '  시공실수 -> 잘못된 시공 흐름도\n' +
+               '  성능설명 -> 성능 원리 구조도\n' +
+               '  구매가이드 -> 자재 선택 결정 흐름도\n' +
+               '  대산브랜딩 -> 기존 유통 vs 대산 유통 구조 비교\n' +
+               '  현장문제해결 -> 문제 발생 원인 구조도\n' +
+               '  규격수치설명 -> 규격 치수 표시도\n' +
+               '  비용물류판단 -> 자재 선택에 따른 비용 구조도\n' +
+               '  기준규정설명 -> 기준/인증 적용 범위 구조도\n' +
+               '- image2 역할 결정 규칙:\n' +
+               '  1. content_type.primary를 먼저 판정하라\n' +
+               '  2. image2.role은 반드시 아래 image2_role_map 값을 그대로 사용하라\n' +
+               '  3. secondary_type은 image2의 소재/현장맥락/비교항목 보강에만 사용하라\n' +
+               '  4. image2.role을 "적용 사례", "시공 장면", "건축물 사례"로 바꾸지 마라\n' +
+               '  5. image2는 반드시 표/매트릭스/체크리스트/비교표/흐름도 중 하나여야 한다\n' +
+               '  6. image2 프롬프트에는 반드시 selection guide / decision matrix / checklist / comparison table / criteria 중 하나를 포함하라\n' +
+               '- image2_role_map:\n' +
+               '  자재비교 -> 용도별/현장별 선택 기준표\n' +
+               '  시공실수 -> 올바른 시공 순서/체크리스트\n' +
+               '  성능설명 -> 조건별(온도/습도/하중) 수치 비교\n' +
+               '  구매가이드 -> 현장 유형별 추천 매트릭스\n' +
+               '  대산브랜딩 -> AI 견적/즉시 발주/물류 흐름도\n' +
+               '  현장문제해결 -> 해결 전/후 비교 또는 점검 포인트\n' +
+               '  규격수치설명 -> 수치별 적용 기준 비교표\n' +
+               '  비용물류판단 -> 발주/납품/현장 손실 비교표\n' +
+               '  기준규정설명 -> 현장별 요구 기준 체크표\n' +
+               '- image1 추가 규칙:\n' +
+               '  자재비교 유형이면 image1 프롬프트에 반드시 "side by side" 레이아웃을 명시하라\n' +
+               '  자재비교 유형이면 각 자재별 결 방향 표현을 유지하라 (예: mixed / parallel / perpendicular grain direction)\n' +
+               '- 이미지 내 텍스트 언어 규칙:\n' +
+               '  공통 원칙:\n' +
+               '  "minimal English labels only" 표현은 사용하지 마라\n' +
+               '  허용:\n' +
+               '  짧은 한글 라벨: 자재명, 부위명, 조건명, 비교기준, 적합도\n' +
+               '  예) 일반합판, 방수석고, 습기환경, 긴스팬, 권장, 주의, 적합\n' +
+               '  기술 약어 영문 유지: LVB, LVL, KS, MPa, mm, T, E0\n' +
+               '  금지:\n' +
+               '  긴 한글 문장\n' +
+               '  법규 단정 표현\n' +
+               '  구조 계산 단정\n' +
+               '  가격/성능 보장 문구\n' +
+               '  브랜드 독점 표현\n' +
+               '  이미지 유형별 언어 선택 기준:\n' +
+               '  선택기준표, 매트릭스, 체크리스트, 비교표, 수치비교표 -> 후처리용 프롬프트\n' +
+               '  단면도, 구조도, 원리도, 흐름도 -> 한글 라벨 허용 프롬프트\n' +
+               '  image2가 선택기준표/매트릭스/체크리스트/비교표/수치비교표 유형이면 프롬프트 끝 문장을 반드시 아래로 교체하라:\n' +
+               '  "Create clean table structure with simple icons, checkmarks (✓), triangles (△), and X marks only. No readable text, no Korean, no English labels. Use blank header areas and placeholder blocks where labels will be added later. Flat technical illustration, clean white background, no people, no brand names."\n' +
+               '  image1 또는 단면도/구조도/원리도/흐름도 유형이면 프롬프트 끝 문장을 반드시 아래로 유지하라:\n' +
+               '  "Short readable Korean technical labels only, keep standard abbreviations in English/symbols (LVB, LVL, KS, mm, MPa), no long Korean sentences."\n' +
+               '  단면도/구조도: Korean labels + English abbreviations\n' +
+               '  선택기준표/매트릭스/체크리스트: 후처리용 무문자 구조 프롬프트\n' +
+               '  흐름도/원리도: minimal text, icons and arrows preferred, short Korean labels only\n' +
+               '  수치비교표: 후처리용 무문자 구조 프롬프트 + 숫자 영역 placeholder\n' +
+               '  법규/인증 설명: 한글 최소화, 단정 표현 절대 금지\n' +
+               '  보조 표현 적극 사용:\n' +
+               '  ◎ 권장 / △ 조건부 / × 비권장\n' +
+               '  화살표로 흐름 표현\n' +
+               '  체크마크로 적합도 표시\n' +
+               '  아이콘으로 조건 구분 (습기, 하중, 비용 등)\n' +
+               '- 3단계: visual_strategy를 기반으로 imagen_prompts를 생성하라\n' +
+               '- imagen_prompts는 [{image_no: 1, prompt: "..."}, {image_no: 2, prompt: "..."}] 형식으로 출력하라\n' +
+               '- 각 prompt는 "현장에서 왜 이 판단이 중요한지"를 시각화해야 한다\n' +
+               '- 각 prompt는 Technical illustration, flat design, clean white background, no text, no people 스타일을 유지하라\n' +
+               '- 이미지 내 텍스트는 최소화하고 짧은 라벨만 허용하라\n' +
+               '- 회사명, 브랜드명, 지역명은 절대 포함하지 마라\n' +
+               '- 기준규정설명 유형이 primary 또는 secondary에 포함되면 반드시 "법적 확정 표현 금지. 참고용 구조로만 표현." 규칙을 반영하라\n\n' +
+               'image2 표 데이터 생성 규칙:\n' +
+               '- image2_table_data는 image2 SVG 직접 생성용 정확한 데이터다\n' +
+               '- type은 반드시 "svg_table"로 출력하라\n' +
+               '- title, columns, rows, legend, note를 모두 채워라\n' +
+               '- columns는 비교 대상 열 이름 배열이다\n' +
+               '- rows는 [{"criteria":"기준명","values":["◎","○","△"]}] 형식이다\n' +
+               '- rows는 최소 4개 이상 생성하라\n' +
+               '- values 길이는 반드시 columns 길이와 같아야 한다\n' +
+               '- legend는 표에 실제 사용한 기호만 포함하라\n' +
+               '- note는 조건부 판단 문장 1개로 작성하라\n' +
+               '- 제공 자료에 없는 가격, 수명, 확률, 성능 수치를 image2_table_data에 넣지 마라\n\n' +
+               '자동 검수 규칙:\n' +
+               '- fact_safety_check를 반드시 함께 출력하라\n' +
+               '- contains_exact_price, contains_unsourced_percent, contains_unsourced_lifespan, contains_awkward_seo_phrase, comparison_sections_use_tables를 모두 boolean으로 채워라\n' +
+               '- comparison_sections_use_tables는 자재/성능/용도 비교 섹션이 Markdown 테이블을 사용했는지 기준으로 판단하라\n\n' +
                '행동 유도:\n' +
                '- CTA 스타일: ' + (templateInfo.cta_style || '문의 유도') + '\n' +
                '- SEO 전략: ' + (templateInfo.seo_strategy || '키워드 중심');
@@ -1516,10 +1649,14 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '4. **강조 키워드 중심**: 위의 강조 키워드가 글의 핵심 메시지가 되도록\n' +
              '5. **템플릿 구조**: ' + (templateInfo.content_structure || '도입-본문-결론') + ' 형태로 구성\n' +
              '6. **SEO 최적화**: SEO 키워드들을 자연스럽게 배치 (특히 제목에 포함)\n' +
-             '7. **사진 플레이스홀더**: 각 섹션에 관련성 높은 사진 반드시 포함하고 설명은 영어로 작성\n' +
+             '7. **사진 플레이스홀더**: 각 섹션에 관련성 높은 사진 반드시 포함하고 설명은 한글로 작성\n' +
              '8. **차별화된 관점**: 강조 키워드를 중심으로 한 독특한 시각 제시\n' +
              '9. **행동 유도**: ' + (templateInfo.cta_style || '문의 유도') + ' 방식으로 마무리\n' +
-             '10. **FAQ 추가**: 글 마지막 부분에 Q. / A. 형식 FAQ 2~3개를 반드시 포함\n\n' +
+             '10. **FAQ 추가**: 글 마지막 부분에 Q. / A. 형식 FAQ 2~3개를 반드시 포함\n' +
+             '11. **가격 표현 제한**: 근거 없는 원 단위 가격 금지, 가격은 상대 표현 우선\n' +
+             '12. **현장 용어 우선**: 영어 참고 표현을 국내 현장 용어로 바꾸되 약어는 유지\n' +
+             '13. **비교표 강제**: 두 개 이상 자재/성능/용도 비교 시 Markdown 테이블을 반드시 포함\n' +
+             '14. **SEO 자연어화**: 지역명+자재명 키워드는 본문에서 자연어 문장으로 풀어쓸 것\n\n' +
              '## 🚫 절대 금지사항\n' +
              '- 파일명을 제목으로 사용하지 마세요\n' +
              '- "[Korean (auto-generated)]" 같은 메타 정보 포함 금지\n' +
@@ -1533,13 +1670,51 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '- 숫자 나열 구조 남용 (3가지, 5가지 등)\n' +
              '- 사진 플레이스홀더 누락\n\n' +
              '**출력 형식:**\n' +
-             '# [매력적인 제목 25-40자]\n' +
-             '[한 줄 부제목]\n\n' +
-             '## [첫 번째 섹션 제목]\n' +
-             '[내용]...\n\n' +
-             'Q. [질문]\n' +
-             'A. [답변]\n\n' +
-             '완전히 새로운 ' + (templateInfo.name || '전문') + ' 글만 출력하고, 별도의 설명은 포함하지 마세요.';
+             '반드시 JSON 객체 하나만 출력하세요. 마크다운 코드블록 금지.\n' +
+             '{\n' +
+             '  "content": "# [매력적인 제목 25-40자]\\n[한 줄 부제목]\\n\\n## [첫 번째 섹션 제목]\\n[내용]...\\n\\nQ. [질문]\\nA. [답변]",\n' +
+             '  "content_type": {\n' +
+             '    "primary": "자재비교",\n' +
+             '    "secondary": "시공실수",\n' +
+             '    "reason": "판단 근거 1문장"\n' +
+             '  },\n' +
+             '  "visual_strategy": {\n' +
+             '    "image1": {\n' +
+             '      "role": "역할",\n' +
+             '      "goal": "교육 목표",\n' +
+             '      "must_include": ["요소1", "요소2"],\n' +
+             '      "avoid": ["금지요소1", "금지요소2"]\n' +
+             '    },\n' +
+             '    "image2": {\n' +
+             '      "role": "역할",\n' +
+             '      "goal": "교육 목표",\n' +
+             '      "must_include": ["요소1", "요소2"],\n' +
+             '      "avoid": ["금지요소1", "금지요소2"]\n' +
+             '    }\n' +
+             '  },\n' +
+             '  "imagen_prompts": [\n' +
+             '    {"image_no": 1, "prompt": "이미지1 영어 프롬프트"},\n' +
+             '    {"image_no": 2, "prompt": "이미지2 영어 프롬프트"}\n' +
+             '  ],\n' +
+             '  "image2_table_data": {\n' +
+             '    "type": "svg_table",\n' +
+             '    "title": "표 제목",\n' +
+             '    "columns": ["열1", "열2", "열3"],\n' +
+             '    "rows": [\n' +
+             '      {"criteria": "기준명", "values": ["◎", "○", "△"]}\n' +
+             '    ],\n' +
+             '    "legend": {"◎": "권장", "○": "적합", "△": "조건부"},\n' +
+             '    "note": "실제 선택은 제품 등급, 하중 조건, 현장 환경에 따라 달라질 수 있음"\n' +
+             '  },\n' +
+             '  "fact_safety_check": {\n' +
+             '    "contains_exact_price": false,\n' +
+             '    "contains_unsourced_percent": false,\n' +
+             '    "contains_unsourced_lifespan": false,\n' +
+             '    "contains_awkward_seo_phrase": false,\n' +
+             '    "comparison_sections_use_tables": true\n' +
+             '  }\n' +
+             '}\n' +
+             '설명 문장 없이 JSON만 출력하세요.';
 
   return {
     system: system,
@@ -1608,6 +1783,500 @@ function getNextPreprocessFileToSEO() {
     file: availableFiles[0],
     totalRemaining: availableFiles.length
   };
+}
+
+function getImage2RoleMap_() {
+  return {
+    '자재비교': '용도별/현장별 선택 기준표',
+    '시공실수': '올바른 시공 순서/체크리스트',
+    '성능설명': '조건별(온도/습도/하중) 수치 비교',
+    '구매가이드': '현장 유형별 추천 매트릭스',
+    '대산브랜딩': 'AI 견적/즉시 발주/물류 흐름도',
+    '현장문제해결': '해결 전/후 비교 또는 점검 포인트',
+    '규격수치설명': '수치별 적용 기준 비교표',
+    '비용물류판단': '발주/납품/현장 손실 비교표',
+    '기준규정설명': '현장별 요구 기준 체크표'
+  };
+}
+
+function getImage1RoleMap_() {
+  return {
+    '자재비교': '재료 구조/적층 차이 단면도',
+    '시공실수': '잘못된 시공 흐름도',
+    '성능설명': '성능 원리 구조도',
+    '구매가이드': '자재 선택 결정 흐름도',
+    '대산브랜딩': '기존 유통 vs 대산 유통 구조 비교',
+    '현장문제해결': '문제 발생 원인 구조도',
+    '규격수치설명': '규격 치수 표시도',
+    '비용물류판단': '자재 선택에 따른 비용 구조도',
+    '기준규정설명': '기준/인증 적용 범위 구조도'
+  };
+}
+
+function callClaudeJsonPayload_(apiKey, payload) {
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post',
+    contentType: 'application/json; charset=utf-8',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText('UTF-8');
+
+  if (responseCode === 429) {
+    return {
+      ok: false,
+      type: 'rate_limit',
+      message: 'Claude API 속도 제한',
+      responseCode: responseCode,
+      responseText: responseText
+    };
+  }
+
+  if (responseCode < 200 || responseCode >= 300) {
+    return {
+      ok: false,
+      type: 'http_error',
+      message: 'Claude API 오류 ' + responseCode,
+      responseCode: responseCode,
+      responseText: responseText
+    };
+  }
+
+  var jsonResponse = JSON.parse(responseText);
+  var rawResponseText = jsonResponse.content[0].text;
+  var cleanResponseText = rawResponseText.replace(/```json\n?/g, '').replace(/\n?```/g, '').trim();
+
+  try {
+    return {
+      ok: true,
+      rawResponseText: rawResponseText,
+      generatedPayload: JSON.parse(cleanResponseText)
+    };
+  } catch (parseError) {
+    return {
+      ok: false,
+      type: 'parse_error',
+      message: parseError.message,
+      rawResponseText: rawResponseText
+    };
+  }
+}
+
+function getImagenPromptByNo_(imagenPrompts, imageNo) {
+  var prompts = Array.isArray(imagenPrompts) ? imagenPrompts : [];
+  for (var i = 0; i < prompts.length; i++) {
+    var item = prompts[i] || {};
+    if (Number(item.image_no) === Number(imageNo)) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function getSvgImage2Type_(primaryType) {
+  var checklistTypes = {
+    '시공실수': true,
+    '기준규정설명': true
+  };
+  var matrixTypes = {
+    '자재비교': true,
+    '구매가이드': true
+  };
+  var compareTypes = {
+    '성능설명': true,
+    '규격수치설명': true,
+    '비용물류판단': true,
+    '현장문제해결': true,
+    '대산브랜딩': true
+  };
+
+  if (checklistTypes[primaryType]) return 'checklist';
+  if (matrixTypes[primaryType]) return 'matrix';
+  if (compareTypes[primaryType]) return 'compare';
+  return 'matrix';
+}
+
+function buildSvgText_(x, y, text, options) {
+  var opts = options || {};
+  var fill = opts.fill || '#1a1a1a';
+  var size = opts.size || 18;
+  var weight = opts.weight || '400';
+  var anchor = opts.anchor || 'middle';
+  return '<text x="' + x + '" y="' + y + '" fill="' + fill + '" font-size="' + size + '" font-weight="' + weight + '" text-anchor="' + anchor + '" font-family="\'Noto Sans KR\', sans-serif">' +
+    escapeHtml(String(text || '')) +
+    '</text>';
+}
+
+function getMatrixSymbol_(rowIndex, colIndex) {
+  var symbols = ['✓', '△', '×'];
+  return symbols[(rowIndex + colIndex) % symbols.length];
+}
+
+function getMatrixSymbolColor_(symbol) {
+  if (symbol === '✓') return '#2c5f8a';
+  if (symbol === '△') return '#f5a623';
+  return '#e74c3c';
+}
+
+function buildSvgTableText_(x, y, width, text, options) {
+  var value = String(text || '');
+  var maxChars = Math.max(4, Math.floor((width || 120) / 11));
+  if (value.length > maxChars) {
+    value = value.substring(0, maxChars - 3) + '...';
+  }
+  return buildSvgText_(x, y, value, options);
+}
+
+function generateSvgTableFromData_(visualStrategy, tableData) {
+  var image2 = (visualStrategy || {}).image2 || {};
+  var normalizedColumns = [];
+  var normalizedRows = [];
+  var legendKeys = [];
+  var legend = tableData.legend || {};
+  var headerColor = '#2c5f8a';
+  var borderColor = '#cccccc';
+  var evenRow = '#f0f4f8';
+  var oddRow = '#ffffff';
+  var width = 800;
+  var marginX = 40;
+  var tableWidth = 720;
+  var criteriaWidth = 220;
+  var parts = [];
+  var i;
+
+  for (i = 0; i < tableData.columns.length; i++) {
+    var columnName = String(tableData.columns[i] || '').trim();
+    if (columnName) normalizedColumns.push(columnName);
+  }
+
+  for (i = 0; i < (tableData.rows || []).length; i++) {
+    var row = tableData.rows[i] || {};
+    var criteria = String(row.criteria || '').trim();
+    var values = Array.isArray(row.values) ? row.values : [];
+    if (!criteria || values.length !== normalizedColumns.length) continue;
+    normalizedRows.push({
+      criteria: criteria,
+      values: values.map(function(value) {
+        return String(value || '').trim() || '-';
+      })
+    });
+  }
+
+  for (var legendKey in legend) {
+    if (legend.hasOwnProperty(legendKey)) legendKeys.push(legendKey);
+  }
+
+  var rowHeight = 52;
+  var headerHeight = 52;
+  var titleHeight = 44;
+  var noteHeight = 46;
+  var legendHeight = legendKeys.length > 0 ? 42 : 0;
+  var height = 24 + titleHeight + headerHeight + (normalizedRows.length * rowHeight) + legendHeight + noteHeight + 34;
+  var valueWidth = normalizedColumns.length > 0 ? (tableWidth - criteriaWidth) / normalizedColumns.length : tableWidth - criteriaWidth;
+  var y = 24;
+
+  parts.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">');
+  parts.push('<rect width="100%" height="100%" fill="#ffffff"/>');
+  parts.push('<rect x="' + marginX + '" y="' + y + '" width="' + tableWidth + '" height="' + titleHeight + '" rx="8" fill="' + headerColor + '"/>');
+  parts.push(buildSvgText_(400, y + 29, tableData.title || image2.role || '선택 기준표', { fill: '#ffffff', size: 22, weight: '700' }));
+  y += titleHeight;
+
+  parts.push('<rect x="' + marginX + '" y="' + y + '" width="' + tableWidth + '" height="' + headerHeight + '" fill="' + headerColor + '"/>');
+  parts.push('<rect x="' + marginX + '" y="' + y + '" width="' + criteriaWidth + '" height="' + headerHeight + '" fill="' + headerColor + '" stroke="' + borderColor + '"/>');
+  parts.push(buildSvgText_(marginX + criteriaWidth / 2, y + 33, '기준', { fill: '#ffffff', size: 18, weight: '700' }));
+
+  for (i = 0; i < normalizedColumns.length; i++) {
+    var cellX = marginX + criteriaWidth + (i * valueWidth);
+    parts.push('<rect x="' + cellX + '" y="' + y + '" width="' + valueWidth + '" height="' + headerHeight + '" fill="' + headerColor + '" stroke="' + borderColor + '"/>');
+    parts.push(buildSvgTableText_(cellX + valueWidth / 2, y + 33, valueWidth, normalizedColumns[i], { fill: '#ffffff', size: 17, weight: '700' }));
+  }
+  y += headerHeight;
+
+  for (i = 0; i < normalizedRows.length; i++) {
+    var fillColor = i % 2 === 0 ? oddRow : evenRow;
+    var rowY = y + (i * rowHeight);
+    parts.push('<rect x="' + marginX + '" y="' + rowY + '" width="' + tableWidth + '" height="' + rowHeight + '" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+    parts.push('<rect x="' + marginX + '" y="' + rowY + '" width="' + criteriaWidth + '" height="' + rowHeight + '" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+    parts.push(buildSvgTableText_(marginX + 16, rowY + 32, criteriaWidth - 24, normalizedRows[i].criteria, { anchor: 'start', size: 16, weight: '500' }));
+
+    for (var vc = 0; vc < normalizedColumns.length; vc++) {
+      var valueX = marginX + criteriaWidth + (vc * valueWidth);
+      var cellValue = normalizedRows[i].values[vc];
+      parts.push('<rect x="' + valueX + '" y="' + rowY + '" width="' + valueWidth + '" height="' + rowHeight + '" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgTableText_(valueX + valueWidth / 2, rowY + 34, valueWidth, cellValue, {
+        fill: getMatrixSymbolColor_(cellValue),
+        size: cellValue.length <= 2 ? 24 : 15,
+        weight: '700'
+      }));
+    }
+  }
+  y += normalizedRows.length * rowHeight;
+
+  if (legendKeys.length > 0) {
+    parts.push('<rect x="' + marginX + '" y="' + y + '" width="' + tableWidth + '" height="' + legendHeight + '" fill="#ffffff" stroke="' + borderColor + '"/>');
+    var legendText = [];
+    for (i = 0; i < legendKeys.length; i++) {
+      legendText.push(legendKeys[i] + ' ' + String(legend[legendKeys[i]] || '').trim());
+    }
+    parts.push(buildSvgText_(marginX + 14, y + 27, legendText.join('   '), { anchor: 'start', size: 16, weight: '500' }));
+    y += legendHeight;
+  }
+
+  parts.push('<rect x="' + marginX + '" y="' + y + '" width="' + tableWidth + '" height="' + noteHeight + '" fill="#f7f9fc" stroke="' + borderColor + '"/>');
+  parts.push(buildSvgTableText_(marginX + 14, y + 28, tableWidth - 28, tableData.note || '실제 선택은 현장 조건 확인이 필요합니다.', {
+    anchor: 'start',
+    size: 14,
+    fill: '#4c5a67',
+    weight: '400'
+  }));
+  parts.push('</svg>');
+  return parts.join('');
+}
+
+function generateImage2AsSvg_(visualStrategy, primaryType, tableData) {
+  if (tableData && Array.isArray(tableData.columns) && Array.isArray(tableData.rows) && tableData.columns.length > 0 && tableData.rows.length > 0) {
+    return generateSvgTableFromData_(visualStrategy, tableData);
+  }
+
+  var strategy = visualStrategy || {};
+  var image2 = strategy.image2 || {};
+  var mustInclude = Array.isArray(image2.must_include) ? image2.must_include : [];
+  var rows = mustInclude.length > 0 ? mustInclude.slice(0, 8) : ['조건1', '조건2', '조건3'];
+  var svgType = getSvgImage2Type_(primaryType);
+  var width = 800;
+  var height = 600;
+  var headerColor = '#2c5f8a';
+  var borderColor = '#cccccc';
+  var evenRow = '#f0f4f8';
+  var oddRow = '#ffffff';
+  var y = 70;
+  var parts = [];
+  var i;
+
+  parts.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">');
+  parts.push('<rect width="100%" height="100%" fill="#ffffff"/>');
+  parts.push('<rect x="40" y="24" width="720" height="44" rx="8" fill="' + headerColor + '"/>');
+  parts.push(buildSvgText_(400, 53, image2.role || '비교표', { fill: '#ffffff', size: 22, weight: '700' }));
+
+  if (svgType === 'matrix') {
+    var matrixCols = ['조건', 'LVB', 'LVL', '합판'];
+    var matrixX = [40, 260, 420, 580];
+    var matrixWidths = [220, 160, 160, 180];
+    parts.push('<rect x="40" y="' + y + '" width="720" height="52" fill="' + headerColor + '"/>');
+    for (i = 0; i < matrixCols.length; i++) {
+      parts.push('<rect x="' + matrixX[i] + '" y="' + y + '" width="' + matrixWidths[i] + '" height="52" fill="' + headerColor + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgText_(matrixX[i] + matrixWidths[i] / 2, y + 33, matrixCols[i], { fill: '#ffffff', size: 18, weight: '700' }));
+    }
+    y += 52;
+    for (i = 0; i < rows.length; i++) {
+      var fillColor = i % 2 === 0 ? oddRow : evenRow;
+      parts.push('<rect x="40" y="' + y + '" width="720" height="56" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="40" y="' + y + '" width="220" height="56" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgText_(58, y + 34, rows[i], { anchor: 'start', size: 17, weight: '500' }));
+      for (var mc = 1; mc < matrixCols.length; mc++) {
+        var symbol = getMatrixSymbol_(i, mc);
+        parts.push('<rect x="' + matrixX[mc] + '" y="' + y + '" width="' + matrixWidths[mc] + '" height="56" fill="' + fillColor + '" stroke="' + borderColor + '"/>');
+        parts.push(buildSvgText_(matrixX[mc] + matrixWidths[mc] / 2, y + 36, symbol, { fill: getMatrixSymbolColor_(symbol), size: 26, weight: '700' }));
+      }
+      y += 56;
+    }
+  } else if (svgType === 'checklist') {
+    parts.push('<rect x="40" y="' + y + '" width="560" height="52" fill="' + headerColor + '"/>');
+    parts.push('<rect x="600" y="' + y + '" width="160" height="52" fill="' + headerColor + '"/>');
+    parts.push(buildSvgText_(320, y + 33, '항목', { fill: '#ffffff', size: 18, weight: '700' }));
+    parts.push(buildSvgText_(680, y + 33, '판단', { fill: '#ffffff', size: 18, weight: '700' }));
+    y += 52;
+    for (i = 0; i < rows.length; i++) {
+      var checkFill = i % 2 === 0 ? oddRow : evenRow;
+      var checkSymbol = getMatrixSymbol_(i, 0);
+      parts.push('<rect x="40" y="' + y + '" width="560" height="60" fill="' + checkFill + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="600" y="' + y + '" width="160" height="60" fill="' + checkFill + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgText_(58, y + 36, rows[i], { anchor: 'start', size: 18, weight: '500' }));
+      parts.push(buildSvgText_(680, y + 38, checkSymbol, { fill: getMatrixSymbolColor_(checkSymbol), size: 28, weight: '700' }));
+      y += 60;
+    }
+  } else {
+    var compareCols = ['항목', '기준A', '기준B', '판단'];
+    var compareX = [40, 290, 460, 610];
+    var compareWidths = [250, 170, 150, 150];
+    parts.push('<rect x="40" y="' + y + '" width="720" height="52" fill="' + headerColor + '"/>');
+    for (i = 0; i < compareCols.length; i++) {
+      parts.push('<rect x="' + compareX[i] + '" y="' + y + '" width="' + compareWidths[i] + '" height="52" fill="' + headerColor + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgText_(compareX[i] + compareWidths[i] / 2, y + 33, compareCols[i], { fill: '#ffffff', size: 18, weight: '700' }));
+    }
+    y += 52;
+    for (i = 0; i < rows.length; i++) {
+      var compareFill = i % 2 === 0 ? oddRow : evenRow;
+      var compareSymbol = getMatrixSymbol_(i, 1);
+      parts.push('<rect x="40" y="' + y + '" width="720" height="56" fill="' + compareFill + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="40" y="' + y + '" width="250" height="56" fill="' + compareFill + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="290" y="' + y + '" width="170" height="56" fill="' + compareFill + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="460" y="' + y + '" width="150" height="56" fill="' + compareFill + '" stroke="' + borderColor + '"/>');
+      parts.push('<rect x="610" y="' + y + '" width="150" height="56" fill="' + compareFill + '" stroke="' + borderColor + '"/>');
+      parts.push(buildSvgText_(56, y + 34, rows[i], { anchor: 'start', size: 17, weight: '500' }));
+      parts.push(buildSvgText_(375, y + 34, '■ ■ ■', { size: 16, fill: '#8c98a4' }));
+      parts.push(buildSvgText_(535, y + 34, '■ ■', { size: 16, fill: '#8c98a4' }));
+      parts.push(buildSvgText_(685, y + 36, compareSymbol, { fill: getMatrixSymbolColor_(compareSymbol), size: 26, weight: '700' }));
+      y += 56;
+    }
+  }
+
+  parts.push('</svg>');
+  return parts.join('');
+}
+
+function validateImage1PromptPayload_(generatedPayload) {
+  var payload = generatedPayload || {};
+  var contentType = payload.content_type || {};
+  var primaryType = String(contentType.primary || '').trim();
+  var visualStrategy = payload.visual_strategy || {};
+  var image1 = visualStrategy.image1 || {};
+  var image1Role = String(image1.role || '').trim();
+  var image1PromptObj = getImagenPromptByNo_(payload.imagen_prompts, 1) || {};
+  var image1Prompt = String(image1PromptObj.prompt || '').toLowerCase();
+  var image1RoleMap = getImage1RoleMap_();
+  var expectedRole = String(image1RoleMap[primaryType] || '').trim();
+  var badKeywords = ['construction site', 'installation scene', 'building exterior'];
+  var structureKeywords = ['cross-section', 'sectional', 'cutaway', 'diagram', 'flowchart', 'structure', 'layer', 'layered', 'schematic'];
+  var hasStructureConcept = false;
+  var hasBadOnlyConcept = false;
+  var i;
+
+  if (!primaryType) {
+    return { ok: false, message: 'content_type.primary 누락' };
+  }
+
+  if (!expectedRole) {
+    return { ok: false, message: 'image1 role map 미정의 유형: ' + primaryType };
+  }
+
+  if (!(image1Role.indexOf(expectedRole) !== -1 || expectedRole.indexOf(image1Role) !== -1)) {
+    return { ok: false, message: 'image1.role 불일치: expected=' + expectedRole + ', actual=' + image1Role };
+  }
+
+  for (i = 0; i < structureKeywords.length; i++) {
+    if (image1Prompt.indexOf(structureKeywords[i]) !== -1) {
+      hasStructureConcept = true;
+      break;
+    }
+  }
+
+  for (i = 0; i < badKeywords.length; i++) {
+    if (image1Prompt.indexOf(badKeywords[i]) !== -1 && !hasStructureConcept) {
+      hasBadOnlyConcept = true;
+      break;
+    }
+  }
+
+  if (primaryType === '자재비교') {
+    if (image1Prompt.indexOf('side by side') === -1) {
+      return { ok: false, message: '자재비교인데 image1에 side by side 없음' };
+    }
+    if (image1Prompt.indexOf('grain direction') === -1) {
+      return { ok: false, message: '자재비교인데 image1에 grain direction 표현 없음' };
+    }
+  }
+
+  if (hasBadOnlyConcept) {
+    return { ok: false, message: 'image1 prompt가 현장 장면 위주이고 구조 개념이 없음' };
+  }
+
+  return { ok: true };
+}
+
+function validateImage2PromptPayload_(generatedPayload) {
+  var payload = generatedPayload || {};
+  var contentType = payload.content_type || {};
+  var primaryType = String(contentType.primary || '').trim();
+  var visualStrategy = payload.visual_strategy || {};
+  var image2 = visualStrategy.image2 || {};
+  var image2Role = String(image2.role || '').trim();
+  var image2MustInclude = Array.isArray(image2.must_include) ? image2.must_include : [];
+  var image2PromptObj = getImagenPromptByNo_(payload.imagen_prompts, 2) || {};
+  var image2Prompt = String(image2PromptObj.prompt || '').toLowerCase();
+  var image2RoleMap = getImage2RoleMap_();
+  var expectedRole = String(image2RoleMap[primaryType] || '').trim();
+  var validKeywords = ['selection guide', 'decision matrix', 'checklist', 'comparison table', 'criteria', 'matrix', 'guide'];
+  var badKeywords = ['적용 사례', '시공 장면', '건축물 사례', 'installation', 'construction site', 'building frame'];
+  var hasValidKeyword = false;
+  var isBadRole = false;
+  var i;
+
+  if (!primaryType) {
+    return { ok: false, message: 'content_type.primary 누락' };
+  }
+
+  if (!expectedRole) {
+    return { ok: false, message: 'image2 role map 미정의 유형: ' + primaryType };
+  }
+
+  if (!(image2Role.indexOf(expectedRole) !== -1 || expectedRole.indexOf(image2Role) !== -1)) {
+    return { ok: false, message: 'image2.role 불일치: expected=' + expectedRole + ', actual=' + image2Role };
+  }
+
+  for (i = 0; i < validKeywords.length; i++) {
+    if (image2Prompt.indexOf(validKeywords[i]) !== -1) {
+      hasValidKeyword = true;
+      break;
+    }
+  }
+
+  for (i = 0; i < badKeywords.length; i++) {
+    if (image2Prompt.indexOf(String(badKeywords[i]).toLowerCase()) !== -1 && !hasValidKeyword) {
+      isBadRole = true;
+      break;
+    }
+  }
+
+  if (primaryType === '자재비교' && image2Prompt.indexOf('selection guide') === -1) {
+    return { ok: false, message: '자재비교인데 image2에 selection guide 없음' };
+  }
+
+  if (!hasValidKeyword || isBadRole) {
+    return { ok: false, message: 'image2 prompt 키워드 규칙 위반' };
+  }
+
+  if (image2MustInclude.length < 3) {
+    return { ok: false, message: 'image2.must_include 비교 기준 3개 미만' };
+  }
+
+  var image2TableData = payload.image2_table_data || {};
+  if (!Array.isArray(image2TableData.columns) || image2TableData.columns.length === 0) {
+    return { ok: false, message: 'image2_table_data.columns 누락' };
+  }
+  if (!Array.isArray(image2TableData.rows) || image2TableData.rows.length < 4) {
+    return { ok: false, message: 'image2_table_data.rows 4개 미만' };
+  }
+
+  return { ok: true };
+}
+
+function regenerateImagePromptPayload_(apiKey, payload, reason) {
+  var retryPayload = JSON.parse(JSON.stringify(payload));
+  var originalUserContent = String(retryPayload.messages[0].content || '');
+
+  retryPayload.messages[0].content = originalUserContent +
+    '\n\n[재생성 보정 지시]\n' +
+    '직전 응답의 이미지 전략이 아래 이유로 검증 실패했다: ' + reason + '\n' +
+    '- image1.role은 반드시 image1_role_map의 primary 기준값과 정확히 일치시켜라\n' +
+    '- image1이 construction site / installation scene / building exterior 위주로 흐르지 않게 하고, 단면도/흐름도/구조도 개념을 유지하라\n' +
+    '- primary가 자재비교라면 image1 프롬프트에는 반드시 "side by side"를 넣어라\n' +
+    '- primary가 자재비교라면 image1 프롬프트에는 각 자재의 결 방향 표현을 유지하라\n' +
+    '- image2.role은 반드시 image2_role_map의 primary 기준값과 정확히 일치시켜라\n' +
+    '- image2는 적용 사례/시공 장면/건축물 사례가 아니라 비교표, 체크리스트, 매트릭스, 흐름도여야 한다\n' +
+    '- image2 프롬프트에는 selection guide / decision matrix / checklist / comparison table / criteria 중 하나를 반드시 포함하라\n' +
+    '- image2.must_include는 3개 이상의 비교 기준을 포함하라\n' +
+    '- image2_table_data는 반드시 유지하고, columns/rows/legend/note를 모두 채워라\n' +
+    '- 설명 없이 JSON만 다시 출력하라';
+
+  Logger.log('🔁 image2 검증 실패 재생성 시도: ' + reason);
+  return callClaudeJsonPayload_(apiKey, retryPayload);
 }
 
 function debugPreprocessFiles() {
@@ -1739,34 +2408,37 @@ function processNextSEOFile() {
       }]
     };
 
-    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'post',
-      contentType: 'application/json; charset=utf-8',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
+    var claudeResult = callClaudeJsonPayload_(apiKey, payload);
 
-    var responseCode = response.getResponseCode();
-    var responseText = response.getContentText('UTF-8');
-
-    if (responseCode === 429) {
+    if (!claudeResult.ok && claudeResult.type === 'rate_limit') {
       Logger.log('❌ 여전히 속도 제한입니다. 5분 후에 다시 시도하세요.');
       Logger.log('💡 또는 Claude API 사용량을 업그레이드하세요.');
       return;
     }
 
-    if (responseCode < 200 || responseCode >= 300) {
-      Logger.log('❌ Claude API 오류 ' + responseCode + ': ' + responseText);
+    if (!claudeResult.ok && claudeResult.type === 'http_error') {
+      Logger.log('❌ ' + claudeResult.message + ': ' + claudeResult.responseText);
       return;
     }
 
-    var jsonResponse = JSON.parse(responseText);
-    var finalContent = jsonResponse.content[0].text;
-    
+    if (!claudeResult.ok && claudeResult.type === 'parse_error') {
+      Logger.log('❌ Claude 응답 JSON 파싱 실패: ' + claudeResult.message);
+      Logger.log('🧪 Claude 원본 응답(앞 500자): ' + String(claudeResult.rawResponseText || '').substring(0, 500));
+      markGenerateErrorStatus_('Claude JSON 파싱 실패');
+      return;
+    }
+
+    var rawResponseText = claudeResult.rawResponseText;
+    var generatedPayload = claudeResult.generatedPayload;
+    var finalContent = String(generatedPayload.content || '').trim();
+
+    if (!finalContent) {
+      Logger.log('❌ Claude 응답 JSON에 content가 없습니다.');
+      Logger.log('🧪 Claude 원본 응답(앞 500자): ' + rawResponseText.substring(0, 500));
+      markGenerateErrorStatus_('Claude JSON content 누락');
+      throw new Error('Claude 응답 JSON에 content가 없습니다.');
+    }
+
     var now = new Date();
     var hours = now.getHours().toString();
     var minutes = now.getMinutes().toString();
@@ -1788,6 +2460,11 @@ function processNextSEOFile() {
       weights: weights,
       photo_guides: prompt.photoGuides,
       content: finalContent,
+      content_type: generatedPayload.content_type || {},
+      visual_strategy: generatedPayload.visual_strategy || {},
+      imagen_prompts: Array.isArray(generatedPayload.imagen_prompts) ? generatedPayload.imagen_prompts : [],
+      image2_table_data: generatedPayload.image2_table_data || {},
+      fact_safety_check: generatedPayload.fact_safety_check || {},
       model: payload.model
     };
 
@@ -1797,7 +2474,66 @@ function processNextSEOFile() {
       'application/json',
       finalFileName
     );
-    jsonOutputFolder.createFile(finalBlob);
+    var savedFinalFile = jsonOutputFolder.createFile(finalBlob);
+
+    var image1Validation = validateImage1PromptPayload_(generatedPayload);
+    var image2Validation = validateImage2PromptPayload_(generatedPayload);
+    var retryReason = '';
+    if (!image1Validation.ok) retryReason += 'image1: ' + image1Validation.message;
+    if (!image2Validation.ok) retryReason += (retryReason ? ' / ' : '') + 'image2: ' + image2Validation.message;
+
+    if (retryReason) {
+      Logger.log('⚠️ 이미지 프롬프트 검증 실패 → 재생성 필요: ' + retryReason);
+      Logger.log('💾 검증 실패 전 _final_seo.json 선저장 완료: ' + finalFileName);
+      markGenerateRetryStatus_(retryReason);
+
+      var retryResult = regenerateImagePromptPayload_(apiKey, payload, retryReason);
+      if (!retryResult.ok && retryResult.type === 'rate_limit') {
+        Logger.log('❌ 이미지 프롬프트 재생성 중 Claude 속도 제한');
+        return;
+      }
+      if (!retryResult.ok && retryResult.type === 'http_error') {
+        Logger.log('❌ 이미지 프롬프트 재생성 Claude API 오류: ' + retryResult.responseText);
+        return;
+      }
+      if (!retryResult.ok && retryResult.type === 'parse_error') {
+        Logger.log('❌ 이미지 프롬프트 재생성 JSON 파싱 실패: ' + retryResult.message);
+        Logger.log('🧪 Claude 재생성 원본 응답(앞 500자): ' + String(retryResult.rawResponseText || '').substring(0, 500));
+        markGenerateErrorStatus_('이미지 프롬프트 재생성 JSON 파싱 실패');
+        return;
+      }
+
+      rawResponseText = retryResult.rawResponseText;
+      generatedPayload = retryResult.generatedPayload;
+      finalContent = String(generatedPayload.content || '').trim();
+      if (!finalContent) {
+        Logger.log('❌ 이미지 프롬프트 재생성 응답 JSON에 content가 없습니다.');
+        Logger.log('🧪 Claude 재생성 원본 응답(앞 500자): ' + String(rawResponseText || '').substring(0, 500));
+        markGenerateErrorStatus_('이미지 프롬프트 재생성 content 누락');
+        return;
+      }
+
+      image1Validation = validateImage1PromptPayload_(generatedPayload);
+      image2Validation = validateImage2PromptPayload_(generatedPayload);
+      retryReason = '';
+      if (!image1Validation.ok) retryReason += 'image1: ' + image1Validation.message;
+      if (!image2Validation.ok) retryReason += (retryReason ? ' / ' : '') + 'image2: ' + image2Validation.message;
+      if (retryReason) {
+        Logger.log('⚠️ 이미지 프롬프트 재생성 후에도 검증 실패: ' + retryReason);
+        markGenerateRetryStatus_(retryReason);
+        return;
+      }
+
+      finalJson.content = finalContent;
+      finalJson.content_type = generatedPayload.content_type || {};
+      finalJson.visual_strategy = generatedPayload.visual_strategy || {};
+      finalJson.imagen_prompts = Array.isArray(generatedPayload.imagen_prompts) ? generatedPayload.imagen_prompts : [];
+      finalJson.image2_table_data = generatedPayload.image2_table_data || {};
+      finalJson.fact_safety_check = generatedPayload.fact_safety_check || {};
+      savedFinalFile.setContent(JSON.stringify(finalJson, null, 2));
+      Logger.log('✅ 재생성 결과로 _final_seo.json 업데이트 완료: ' + finalFileName);
+      Logger.log('✅ 이미지 프롬프트 재생성 후 검증 통과');
+    }
 
     Logger.log('✅ 완전 재구성 SEO 글 생성 완료: ' + finalFileName);
     Logger.log('📊 남은 파일: ' + remaining + '개');
@@ -2725,7 +3461,7 @@ function getPublishControlRow_(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
 
   for (var i = 0; i < values.length; i++) {
     var publishMode = String(values[i][5] || '').trim();
@@ -2746,6 +3482,36 @@ function updatePublishStatus_(sheet, rowIndex, status) {
   sheet.getRange(rowIndex, 7).setValue(status);
 }
 
+function markGenerateErrorStatus_(message) {
+  try {
+    var spreadsheet = SpreadsheetApp.openById(CONTROL_SHEET_ID);
+    var sheet = spreadsheet.getSheetByName(SHEET_NAME_MAIN);
+    if (!sheet) return;
+
+    var targetRow = getPublishControlRow_(sheet);
+    var rowIndex = targetRow && targetRow.rowIndex ? targetRow.rowIndex : 2;
+    sheet.getRange(rowIndex, 7).setValue('오류');
+    Logger.log('📛 생성 오류 상태 기록 완료 (행: ' + rowIndex + ', 메시지: ' + String(message || '').substring(0, 100) + ')');
+  } catch (error) {
+    Logger.log('⚠️ 생성 오류 상태 기록 실패: ' + error.message);
+  }
+}
+
+function markGenerateRetryStatus_(message) {
+  try {
+    var spreadsheet = SpreadsheetApp.openById(CONTROL_SHEET_ID);
+    var sheet = spreadsheet.getSheetByName(SHEET_NAME_MAIN);
+    if (!sheet) return;
+
+    var targetRow = getPublishControlRow_(sheet);
+    var rowIndex = targetRow && targetRow.rowIndex ? targetRow.rowIndex : 2;
+    sheet.getRange(rowIndex, 7).setValue('이미지재생성');
+    Logger.log('🔁 이미지재생성 상태 기록 완료 (행: ' + rowIndex + ', 메시지: ' + String(message || '').substring(0, 120) + ')');
+  } catch (error) {
+    Logger.log('⚠️ 이미지재생성 상태 기록 실패: ' + error.message);
+  }
+}
+
 function ensurePublishControlHeaders_(sheet) {
   if (!sheet) return;
 
@@ -2753,6 +3519,34 @@ function ensurePublishControlHeaders_(sheet) {
   if (imageSourceHeader !== '이미지소스') {
     sheet.getRange(1, 10).setValue('이미지소스');
     Logger.log('🧩 시트1 J1 헤더를 "이미지소스"로 설정했습니다.');
+  }
+
+  var image1GeminiHeader = String(sheet.getRange(1, 12).getValue() || '').trim();
+  if (image1GeminiHeader !== 'image1_gemini_url') {
+    sheet.getRange(1, 12).setValue('image1_gemini_url');
+    Logger.log('🧩 시트1 L1 헤더를 "image1_gemini_url"로 설정했습니다.');
+  }
+
+  var image1OpenAiHeader = String(sheet.getRange(1, 13).getValue() || '').trim();
+  if (image1OpenAiHeader !== 'image1_openai_url') {
+    sheet.getRange(1, 13).setValue('image1_openai_url');
+    Logger.log('🧩 시트1 M1 헤더를 "image1_openai_url"로 설정했습니다.');
+  }
+
+  var image1ChoiceHeader = String(sheet.getRange(1, 14).getValue() || '').trim();
+  if (image1ChoiceHeader !== 'image1_선택') {
+    sheet.getRange(1, 14).setValue('image1_선택');
+    Logger.log('🧩 시트1 N1 헤더를 "image1_선택"으로 설정했습니다.');
+  }
+}
+
+function storeImage1CandidateUrls_(sheet, rowIndex, geminiUrl, openaiUrl) {
+  if (!sheet || !rowIndex) return;
+  if (geminiUrl) {
+    sheet.getRange(rowIndex, 12).setValue(geminiUrl);
+  }
+  if (openaiUrl) {
+    sheet.getRange(rowIndex, 13).setValue(openaiUrl);
   }
 }
 
@@ -2815,22 +3609,49 @@ function runGenerateOnly() {
 
     Logger.log('📄 runGenerateOnly 생성 파일명: ' + generatedFile.getName());
     Logger.log('📁 runGenerateOnly 저장 폴더 ID: ' + CONFIG.JSON_OUTPUT_FOLDER_ID);
-
     var generatedJson = JSON.parse(generatedFile.getBlob().getDataAsString());
-    var imagenPrompts = generateImagenPrompts_(
-      generatedJson.content,
-      extractTitleFromContent_(generatedJson.content, generatedJson.baseName),
-      generatedJson.highlight_keywords || []
-    );
+    Logger.log('🖼️ 저장된 imagen_prompts 수: ' + ((generatedJson.imagen_prompts || []).length));
+    Logger.log('🧾 image2_table_data 생성 여부: ' + !!(generatedJson.image2_table_data && generatedJson.image2_table_data.columns && generatedJson.image2_table_data.rows));
+    Logger.log('🧾 fact_safety_check 생성 여부: ' + !!generatedJson.fact_safety_check);
 
-    if (imagenPrompts) {
-      generatedJson.imagen_prompts = imagenPrompts;
-      generatedFile.setContent(JSON.stringify(generatedJson, null, 2));
-      Logger.log('💾 final_seo.json imagen_prompts 저장 완료: ' + generatedFile.getName());
-      Logger.log('🖼️ 저장된 prompt1: ' + (imagenPrompts.prompt1 || '없음'));
-      Logger.log('🖼️ 저장된 prompt2: ' + (imagenPrompts.prompt2 || '없음'));
-    } else {
-      Logger.log('⚠️ imagen_prompts 생성 실패 또는 미생성');
+    try {
+      var spreadsheet = SpreadsheetApp.openById(CONTROL_SHEET_ID);
+      var sheet = spreadsheet.getSheetByName(SHEET_NAME_MAIN);
+      if (sheet) {
+        ensurePublishControlHeaders_(sheet);
+        var controlRow = getPublishControlRow_(sheet);
+        var rowIndex = controlRow && controlRow.rowIndex ? controlRow.rowIndex : 2;
+        var imagenPrompts = Array.isArray(generatedJson.imagen_prompts) ? generatedJson.imagen_prompts : [];
+        var prompt1 = '';
+        for (var ip = 0; ip < imagenPrompts.length; ip++) {
+          var item = imagenPrompts[ip] || {};
+          if (Number(item.image_no) === 1) {
+            prompt1 = String(item.prompt || item.text || '').trim();
+            break;
+          }
+        }
+
+        if (prompt1) {
+          var title = extractTitleFromContent_(generatedJson.content, generatedJson.baseName);
+          var imageFolder = createImageFolderForPost_(title);
+          var geminiImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), title, '1g');
+          var openAiFileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+            String(title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_01_openai.png';
+          var openAiImage1 = generateImageWithOpenAI_(prompt1, imageFolder.getId(), openAiFileName);
+          storeImage1CandidateUrls_(
+            sheet,
+            rowIndex,
+            geminiImage1 && geminiImage1.publicUrl ? geminiImage1.publicUrl : '',
+            openAiImage1 && openAiImage1.publicUrl ? openAiImage1.publicUrl : ''
+          );
+          Logger.log('🖼️ image1 Gemini 후보 URL: ' + (geminiImage1 && geminiImage1.publicUrl ? geminiImage1.publicUrl : '없음'));
+          Logger.log('🖼️ image1 OpenAI 후보 URL: ' + (openAiImage1 && openAiImage1.publicUrl ? openAiImage1.publicUrl : '없음'));
+        } else {
+          Logger.log('⚠️ runGenerateOnly: image1 prompt가 없어 L/M열 URL 저장을 건너뜁니다.');
+        }
+      }
+    } catch (imagePrepError) {
+      Logger.log('⚠️ runGenerateOnly image1 후보 생성 실패: ' + imagePrepError.message);
     }
 
     moveSourceFileToProcessedFolder_(generatedJson.source_file_id);
@@ -2874,6 +3695,9 @@ function runPublishOnly() {
     var publishMode = String(controlRow.values[5] || '').trim();
     var scheduleRaw = controlRow.values[7];
     var imageSource = getImageSourceFromControlRow_(controlRow);
+    var image1Choice = String(controlRow.values[13] || '').trim().toUpperCase();
+    var storedGeminiUrl = String(controlRow.values[11] || '').trim();
+    var storedOpenAiUrl = String(controlRow.values[12] || '').trim();
 
     // H열 예약시간 파싱 → ISO 8601 변환
     var scheduledTime = null;
@@ -2887,6 +3711,7 @@ function runPublishOnly() {
     Logger.log('📋 발행 제어 행: ' + controlRow.rowIndex + '행');
     Logger.log('📢 발행 모드: ' + publishMode);
     Logger.log('🖼️ 이미지 소스: ' + imageSource);
+    Logger.log('🖼️ image1 선택값: ' + (image1Choice || 'G(기본값)'));
     Logger.log('🕐 H열 원본값: ' + (scheduleRaw ? String(scheduleRaw) : '비어있음'));
     Logger.log('🕐 계산된 예약시간 (ISO 8601): ' + (scheduledTime || '즉시 발행'));
 
@@ -2932,29 +3757,68 @@ function runPublishOnly() {
       Logger.log('🎨 자동생성 모드: Gemini 이미지 생성 사용');
       imageFolder = createImageFolderForPost_(title);
 
-      var imagenPrompts = finalData.imagen_prompts || {};
-      var prompt1 = String(imagenPrompts.prompt1 || '').trim();
-      var prompt2 = String(imagenPrompts.prompt2 || '').trim();
-
-      Logger.log('🧾 imagen_prompts.prompt1: ' + (prompt1 || '없음'));
-      Logger.log('🧾 imagen_prompts.prompt2: ' + (prompt2 || '없음'));
-
-      if (!prompt1 || !prompt2) {
-        throw new Error('final_seo.json의 imagen_prompts가 비어 있습니다. runGenerateOnly()를 다시 실행해 prompt1/prompt2를 생성하세요.');
+      var imagenPrompts = Array.isArray(finalData.imagen_prompts) ? finalData.imagen_prompts : [];
+      var prompt1 = '';
+      var primaryType = String(((finalData.content_type || {}).primary) || '').trim();
+      for (var ip = 0; ip < imagenPrompts.length; ip++) {
+        var item = imagenPrompts[ip] || {};
+        var imageNo = Number(item.image_no);
+        var promptText = String(item.prompt || item.text || '').trim();
+        if (imageNo === 1 && promptText) prompt1 = promptText;
       }
 
-      var generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), title, 1);
-      var generatedImage2 = generateImageWithGemini_(prompt2, imageFolder.getId(), title, 2);
+      Logger.log('🧾 imagen_prompts.prompt1: ' + (prompt1 || '없음'));
+      Logger.log('🧾 image2 SVG primaryType: ' + (primaryType || '없음'));
+
+      if (!prompt1) {
+        throw new Error('final_seo.json의 image1 prompt가 비어 있습니다. runGenerateOnly()를 다시 실행하세요.');
+      }
+
+      var selectedImage1Url = '';
+      var selectedSource = image1Choice === 'O' ? 'OpenAI' : 'Gemini';
+      if (image1Choice === 'O') {
+        selectedImage1Url = storedOpenAiUrl || '';
+      } else {
+        selectedImage1Url = storedGeminiUrl || '';
+      }
+
+      var generatedImage1;
+      if (selectedImage1Url) {
+        generatedImage1 = {
+          fileName: selectedSource === 'OpenAI' ? 'image1_openai.png' : 'image1_gemini.png',
+          mimeType: 'image/png',
+          publicUrl: selectedImage1Url,
+          responseCode: 200
+        };
+        Logger.log('✅ 저장된 image1 ' + selectedSource + ' URL 사용: ' + selectedImage1Url);
+      } else if (image1Choice === 'O') {
+        var openAiFileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+          String(title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_01_openai.png';
+        generatedImage1 = generateImageWithOpenAI_(prompt1, imageFolder.getId(), openAiFileName);
+      } else {
+        generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), title, 1);
+      }
+      var image2Svg = generateImage2AsSvg_(finalData.visual_strategy, primaryType, finalData.image2_table_data);
+      var image2FileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+        String(title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_02.svg';
+      var image2Blob = Utilities.newBlob(image2Svg, 'image/svg+xml', image2FileName);
+      var image2Url = uploadBlobToGitHub_(image2Blob, image2FileName);
+      var generatedImage2 = {
+        fileName: image2FileName,
+        mimeType: 'image/svg+xml',
+        publicUrl: image2Url,
+        responseCode: 200
+      };
 
       if (!generatedImage1 || !generatedImage2) {
-        throw new Error('Gemini 이미지 생성 실패: 2장의 이미지가 모두 생성되지 않았습니다.');
+        throw new Error('image1/image2 생성 실패: 2장의 이미지가 모두 생성되지 않았습니다.');
       }
 
       generatedImages = [generatedImage1, generatedImage2];
 
-      Logger.log('✅ Gemini 이미지 2장 생성 완료');
-      Logger.log('🔗 01.png URL: ' + generatedImage1.publicUrl);
-      Logger.log('🔗 02.png URL: ' + generatedImage2.publicUrl);
+      Logger.log('✅ image1 ' + selectedSource + ' + image2 SVG 생성 완료');
+      Logger.log('🔗 01 URL: ' + generatedImage1.publicUrl);
+      Logger.log('🔗 02.svg URL: ' + generatedImage2.publicUrl);
     } else if (imageSource === '이미지생성') {
       Logger.log('🧠 이미지생성 모드: Unsplash 이미지 검색을 사용합니다.');
       imageFolder = createImageFolderForPost_(title);
@@ -5662,80 +6526,6 @@ function STEP_B_geminiAnalysis() {
   }
 }
 
-function generateImagenPrompts_(content, title, highlightKeywords) {
-  Logger.log("🖼️ === Imagen 프롬프트 생성 시작 ===");
-
-  try {
-    var apiKey = getGeminiKey_();
-    if (!apiKey) {
-      Logger.log("❌ Gemini API 키가 설정되지 않았습니다.");
-      return null;
-    }
-
-    var contentSnippet = String(content || '').substring(0, 2000);
-    var keywordText = Array.isArray(highlightKeywords) ? highlightKeywords.join(', ') : String(highlightKeywords || '');
-    var promptText =
-      "아래 건축자재 블로그 글에서 아래를 추출하라:\n" +
-      "1. 기존 방식/문제점 -> {기존방식} (영어로)\n" +
-      "2. 개선 방식/추천 자재 -> {개선방식} (영어로)\n" +
-      "3. 핵심 자재명 -> {자재명} (영어로)\n\n" +
-      "위 추출값을 아래 템플릿에 채워 완성된 프롬프트 2개를 생성하라.\n\n" +
-      "이미지1 (CTR 비교형) 템플릿:\n" +
-      "split-screen architectural technical infographic showing {기존방식} vs {개선방식}, detailed cross sectional construction layers, realistic material textures, moisture and thermal flow visualization, engineering style cutaway diagram, ultra detailed, clean white background, cinematic technical lighting, modern construction technology illustration, minimal text labels, only 2-3 korean labels for key differences, no english text blocks\n\n" +
-      "이미지2 (단면 구조형) 템플릿:\n" +
-      "exploded cross sectional view of {자재명} internal structure, showing material layers and composition, realistic construction material texture, architectural engineering infographic, ultra detailed technical rendering, heat flow arrows, moisture visualization, clean white background, minimal text, only essential korean labels, no dense text blocks\n\n" +
-      "규칙:\n" +
-      "- 회사명, 브랜드명, 지역명 절대 포함 금지\n" +
-      "- 출력은 JSON만 허용: {\"prompt1\": \"...\", \"prompt2\": \"...\"}\n\n" +
-      "글 제목: " + String(title || '') + "\n" +
-      "강조키워드: " + keywordText + "\n" +
-      "본문: " + contentSnippet;
-
-    var payload = {
-      contents: [{
-        parts: [{ text: promptText }]
-      }],
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: "application/json"
-      }
-    };
-
-    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
-    var response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    var responseCode = response.getResponseCode();
-    var responseText = response.getContentText();
-    Logger.log("📡 Imagen 프롬프트 Gemini 응답 코드: " + responseCode);
-    Logger.log("📝 Imagen 프롬프트 Gemini 응답(앞 200자): " + responseText.substring(0, 200));
-
-    if (responseCode !== 200) {
-      Logger.log("❌ Imagen 프롬프트 생성 실패: " + responseText);
-      return null;
-    }
-
-    var responseData = JSON.parse(responseText);
-    var rawText = responseData.candidates[0].content.parts[0].text;
-    var cleanText = rawText.replace(/```json\n?/g, "").replace(/\n?```/g, "");
-    var imagenPrompts = JSON.parse(cleanText);
-
-    Logger.log("✅ Imagen 프롬프트 생성 완료");
-    Logger.log("🖼️ prompt1: " + (imagenPrompts.prompt1 || '없음'));
-    Logger.log("🖼️ prompt2: " + (imagenPrompts.prompt2 || '없음'));
-
-    return imagenPrompts;
-  } catch (error) {
-    Logger.log("❌ generateImagenPrompts_ 오류: " + error.message);
-    Logger.log("❌ generateImagenPrompts_ 스택: " + error.stack);
-    return null;
-  }
-}
-
 function getNextImagenFileName_(folder) {
   var files = folder.getFiles();
   var maxNumber = 0;
@@ -5837,6 +6627,84 @@ function generateImageWithGemini_(prompt, folderId, title, index) {
   }
 }
 
+function generateImageWithOpenAI_(prompt, folderId, fileName) {
+  try {
+    var apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.OPENAI_API_KEY);
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
+    }
+
+    var resolvedFileName = String(fileName || ('openai_' + new Date().getTime() + '.png')).trim();
+    var payload = {
+      model: 'gpt-image-2',
+      prompt: prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high'
+    };
+
+    Logger.log('🎨 === OpenAI 이미지 생성 시작 ===');
+    Logger.log('🖼️ 저장 파일명: ' + resolvedFileName);
+    Logger.log('📝 OpenAI 프롬프트(앞 200자): ' + String(prompt || '').substring(0, 200));
+
+    var response = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    Logger.log('📡 OpenAI 이미지 응답 코드: ' + responseCode);
+    Logger.log('📝 OpenAI 이미지 응답(앞 200자): ' + responseText.substring(0, 200));
+
+    if (responseCode < 200 || responseCode >= 300) {
+      throw new Error('OpenAI 이미지 생성 실패: ' + responseText);
+    }
+
+    var responseJson = JSON.parse(response.getContentText());
+    var imageBlob;
+
+    if (responseJson.data && responseJson.data[0].b64_json) {
+      var b64Data = responseJson.data[0].b64_json;
+      imageBlob = Utilities.newBlob(
+        Utilities.base64Decode(b64Data),
+        'image/png',
+        resolvedFileName
+      );
+      Logger.log('🧾 OpenAI 응답 형식: b64_json');
+    } else if (responseJson.data && responseJson.data[0].url) {
+      var imageUrl = responseJson.data[0].url;
+      Logger.log('🧾 OpenAI 응답 형식: url');
+      Logger.log('🔗 OpenAI 원본 이미지 URL: ' + imageUrl);
+      imageBlob = UrlFetchApp.fetch(imageUrl).getBlob();
+    } else {
+      throw new Error('OpenAI 응답에 이미지 데이터가 없습니다.');
+    }
+
+    var base64Data = Utilities.base64Encode(imageBlob.getBytes());
+
+    var publicUrl = uploadImageToGitHub_(base64Data, resolvedFileName);
+    Logger.log('✅ OpenAI 이미지 GitHub 업로드 성공: ' + resolvedFileName);
+    Logger.log('🔗 OpenAI 이미지 URL: ' + publicUrl);
+
+    return {
+      fileName: resolvedFileName,
+      mimeType: 'image/png',
+      publicUrl: publicUrl,
+      responseCode: responseCode
+    };
+  } catch (error) {
+    Logger.log('❌ generateImageWithOpenAI_ 오류: ' + error.message);
+    Logger.log('❌ generateImageWithOpenAI_ 스택: ' + error.stack);
+    return null;
+  }
+}
+
 function uploadImageToGitHub_(base64Data, fileName) {
   var githubToken = getGithubToken_();
   var resolvedFileName = String(fileName || ('image_' + new Date().getTime() + '.png')).trim();
@@ -5905,6 +6773,14 @@ function uploadImageToGitHub_(base64Data, fileName) {
   }
 
   return 'https://raw.githubusercontent.com/kangHo-Jun/Blog/main/images/' + encodeURIComponent(resolvedFileName);
+}
+
+function uploadBlobToGitHub_(blob, fileName) {
+  if (!blob) {
+    throw new Error('업로드할 Blob이 비어 있습니다.');
+  }
+  var base64Data = Utilities.base64Encode(blob.getBytes());
+  return uploadImageToGitHub_(base64Data, fileName);
 }
 
 /**
@@ -6702,6 +7578,324 @@ function testGitHubImageUpload() {
   }
 }
 
+function testImageGenOnly() {
+  var baseName = "What's the Difference Between LVL, LVB and Normal Plywood_ - ACEALL WOOD";
+  var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
+  var finalSeoName = baseName + '_final_seo.json';
+  var preprocessName = baseName + '_preprocess.json';
+  var finalData = null;
+  var title = baseName;
+  var imageFolder = null;
+  var generatedImage1 = null;
+  var openAiImage1 = null;
+  var generatedImage2 = null;
+  var prompt1 = '';
+  var primaryType = '';
+
+  try {
+    Logger.log('🧪 === testImageGenOnly 시작 ===');
+    Logger.log('📄 대상 baseName: ' + baseName);
+
+    var finalSeoFiles = jsonOutputFolder.getFilesByName(finalSeoName);
+    if (finalSeoFiles.hasNext()) {
+      finalData = JSON.parse(finalSeoFiles.next().getBlob().getDataAsString());
+      title = extractTitleFromContent_(finalData.content, finalData.baseName || baseName);
+      Logger.log('✅ 기존 _final_seo.json 사용: ' + finalSeoName);
+    } else {
+      Logger.log('ℹ️ 기존 _final_seo.json 없음. _preprocess.json 기반으로 imagen_prompts만 생성합니다.');
+
+      var preprocessFiles = jsonOutputFolder.getFilesByName(preprocessName);
+      if (!preprocessFiles.hasNext()) {
+        Logger.log('❌ _preprocess.json 파일을 찾지 못했습니다: ' + preprocessName);
+        return {
+          success: false,
+          error: '_preprocess.json not found'
+        };
+      }
+
+      var settings = loadRunSettings();
+      var apiKey = getClaudeKey_();
+      if (!settings || !apiKey) {
+        Logger.log('❌ 실행 설정 또는 Claude API 키가 없습니다.');
+        return {
+          success: false,
+          error: 'missing settings or Claude API key'
+        };
+      }
+
+      var preprocessData = JSON.parse(preprocessFiles.next().getBlob().getDataAsString());
+      var prompt = createReconstructedPromptWithTemplate(
+        preprocessData,
+        settings.weights,
+        settings.seoKeywords,
+        settings.highlightKeywords,
+        settings.templateData,
+        settings.styleData
+      );
+
+      var payload = {
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 8000,
+        temperature: 0.3,
+        system: prompt.system,
+        messages: [{
+          role: 'user',
+          content: prompt.user
+        }]
+      };
+
+      var claudeResult = callClaudeJsonPayload_(apiKey, payload);
+      if (!claudeResult.ok) {
+        Logger.log('❌ Claude imagen_prompts 생성 실패: ' + (claudeResult.message || 'unknown error'));
+        if (claudeResult.rawResponseText) {
+          Logger.log('🧪 Claude 원본 응답(앞 500자): ' + String(claudeResult.rawResponseText).substring(0, 500));
+        }
+        if (claudeResult.responseText) {
+          Logger.log('🧪 Claude 응답 본문(앞 500자): ' + String(claudeResult.responseText).substring(0, 500));
+        }
+        return {
+          success: false,
+          error: claudeResult.message || 'Claude call failed'
+        };
+      }
+
+      finalData = {
+        baseName: baseName,
+        content: String((claudeResult.generatedPayload || {}).content || '').trim(),
+        content_type: (claudeResult.generatedPayload || {}).content_type || {},
+        visual_strategy: (claudeResult.generatedPayload || {}).visual_strategy || {},
+        imagen_prompts: Array.isArray((claudeResult.generatedPayload || {}).imagen_prompts) ? claudeResult.generatedPayload.imagen_prompts : []
+      };
+      title = extractTitleFromContent_(finalData.content, baseName);
+      Logger.log('✅ Claude로 imagen_prompts 생성 완료 (_final_seo.json 미저장)');
+    }
+
+    var imagenPrompts = Array.isArray(finalData.imagen_prompts) ? finalData.imagen_prompts : [];
+    primaryType = String(((finalData.content_type || {}).primary) || '').trim();
+    for (var i = 0; i < imagenPrompts.length; i++) {
+      var item = imagenPrompts[i] || {};
+      var imageNo = Number(item.image_no);
+      var promptText = String(item.prompt || item.text || '').trim();
+      if (imageNo === 1 && promptText) prompt1 = promptText;
+    }
+
+    if (!prompt1) {
+      Logger.log('❌ image1 prompt가 비어 있습니다.');
+      Logger.log('🧾 imagen_prompts 원본: ' + JSON.stringify(imagenPrompts));
+      return {
+        success: false,
+        error: 'missing image1 prompt'
+      };
+    }
+
+    Logger.log('🧾 image1 prompt(앞 300자): ' + prompt1.substring(0, 300));
+    Logger.log('🧾 image2 SVG primaryType: ' + (primaryType || '없음'));
+
+    imageFolder = createImageFolderForPost_(title);
+    Logger.log('📁 테스트 이미지 폴더 ID: ' + imageFolder.getId());
+
+    generatedImage1 = generateImageWithGemini_(prompt1, imageFolder.getId(), title, 1);
+    var openAiFileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+      String(title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_01_openai.png';
+    openAiImage1 = generateImageWithOpenAI_(prompt1, imageFolder.getId(), openAiFileName);
+    var image2Svg = generateImage2AsSvg_(finalData.visual_strategy, primaryType, finalData.image2_table_data);
+    var image2FileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+      String(title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_02.svg';
+    var image2Blob = Utilities.newBlob(image2Svg, 'image/svg+xml', image2FileName);
+    var image2Url = uploadBlobToGitHub_(image2Blob, image2FileName);
+    generatedImage2 = {
+      fileName: image2FileName,
+      mimeType: 'image/svg+xml',
+      publicUrl: image2Url,
+      responseCode: 200
+    };
+
+    if (!generatedImage1 || !generatedImage1.publicUrl) {
+      Logger.log('❌ 이미지1 생성 또는 GitHub 업로드 실패');
+      return {
+        success: false,
+        error: 'image1 gemini generation failed'
+      };
+    }
+
+    if (!openAiImage1 || !openAiImage1.publicUrl) {
+      Logger.log('❌ image1 OpenAI 생성 또는 GitHub 업로드 실패');
+      return {
+        success: false,
+        error: 'image1 openai generation failed'
+      };
+    }
+
+    if (!generatedImage2 || !generatedImage2.publicUrl) {
+      Logger.log('❌ 이미지2 생성 또는 GitHub 업로드 실패');
+      return {
+        success: false,
+        error: 'image2 generation failed'
+      };
+    }
+
+    Logger.log('🖼️ image1 Gemini: ' + generatedImage1.publicUrl);
+    Logger.log('🖼️ image1 OpenAI: ' + openAiImage1.publicUrl);
+    Logger.log('🖼️ image2 SVG: ' + generatedImage2.publicUrl);
+    Logger.log('🧾 image2 SVG(앞 500자): ' + image2Svg.substring(0, 500));
+
+    return {
+      success: true,
+      baseName: baseName,
+      title: title,
+      image1Gemini: generatedImage1.publicUrl,
+      image1OpenAI: openAiImage1.publicUrl,
+      image2: generatedImage2.publicUrl,
+      prompt1: prompt1,
+      image2Svg: image2Svg
+    };
+  } catch (error) {
+    Logger.log('❌ testImageGenOnly 오류: ' + error.message);
+    Logger.log('❌ testImageGenOnly 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function loadFixedImageGenTestData_() {
+  var baseName = "What's the Difference Between LVL, LVB and Normal Plywood_ - ACEALL WOOD";
+  var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
+  var finalSeoName = baseName + '_final_seo.json';
+  var finalSeoFiles = jsonOutputFolder.getFilesByName(finalSeoName);
+
+  if (!finalSeoFiles.hasNext()) {
+    throw new Error('_final_seo.json 파일을 찾지 못했습니다: ' + finalSeoName);
+  }
+
+  var finalData = JSON.parse(finalSeoFiles.next().getBlob().getDataAsString());
+  var title = extractTitleFromContent_(finalData.content, finalData.baseName || baseName);
+  var imagenPrompts = Array.isArray(finalData.imagen_prompts) ? finalData.imagen_prompts : [];
+  var prompt1 = '';
+
+  for (var i = 0; i < imagenPrompts.length; i++) {
+    var item = imagenPrompts[i] || {};
+    var imageNo = Number(item.image_no);
+    var promptText = String(item.prompt || item.text || '').trim();
+    if (imageNo === 1 && promptText) {
+      prompt1 = promptText;
+      break;
+    }
+  }
+
+  if (!prompt1) {
+    throw new Error('image1 prompt가 비어 있습니다.');
+  }
+
+  return {
+    baseName: baseName,
+    finalData: finalData,
+    title: title,
+    prompt1: prompt1,
+    primaryType: String(((finalData.content_type || {}).primary) || '').trim()
+  };
+}
+
+function testImageGenOnly_Gemini() {
+  try {
+    Logger.log('🧪 === testImageGenOnly_Gemini 시작 ===');
+    var testData = loadFixedImageGenTestData_();
+    var imageFolder = createImageFolderForPost_(testData.title);
+    Logger.log('📁 테스트 이미지 폴더 ID: ' + imageFolder.getId());
+    Logger.log('🧾 image1 prompt(앞 300자): ' + testData.prompt1.substring(0, 300));
+
+    var generatedImage1 = generateImageWithGemini_(testData.prompt1, imageFolder.getId(), testData.title, 1);
+    if (!generatedImage1 || !generatedImage1.publicUrl) {
+      Logger.log('❌ Gemini image1 생성 실패');
+      return {
+        success: false,
+        error: 'gemini image1 generation failed'
+      };
+    }
+
+    Logger.log('🖼️ image1 Gemini: ' + generatedImage1.publicUrl);
+    return {
+      success: true,
+      image1Gemini: generatedImage1.publicUrl,
+      prompt1: testData.prompt1
+    };
+  } catch (error) {
+    Logger.log('❌ testImageGenOnly_Gemini 오류: ' + error.message);
+    Logger.log('❌ testImageGenOnly_Gemini 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function testImageGenOnly_OpenAI() {
+  try {
+    Logger.log('🧪 === testImageGenOnly_OpenAI 시작 ===');
+    var testData = loadFixedImageGenTestData_();
+    var imageFolder = createImageFolderForPost_(testData.title);
+    Logger.log('📁 테스트 이미지 폴더 ID: ' + imageFolder.getId());
+    Logger.log('🧾 image1 prompt(앞 300자): ' + testData.prompt1.substring(0, 300));
+
+    var openAiFileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+      String(testData.title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_01_openai.png';
+    var openAiImage1 = generateImageWithOpenAI_(testData.prompt1, imageFolder.getId(), openAiFileName);
+    if (!openAiImage1 || !openAiImage1.publicUrl) {
+      Logger.log('❌ OpenAI image1 생성 실패');
+      return {
+        success: false,
+        error: 'openai image1 generation failed'
+      };
+    }
+
+    Logger.log('🖼️ image1 OpenAI: ' + openAiImage1.publicUrl);
+    return {
+      success: true,
+      image1OpenAI: openAiImage1.publicUrl,
+      prompt1: testData.prompt1
+    };
+  } catch (error) {
+    Logger.log('❌ testImageGenOnly_OpenAI 오류: ' + error.message);
+    Logger.log('❌ testImageGenOnly_OpenAI 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function testImageGenOnly_SVG() {
+  try {
+    Logger.log('🧪 === testImageGenOnly_SVG 시작 ===');
+    var testData = loadFixedImageGenTestData_();
+    var image2Svg = generateImage2AsSvg_(testData.finalData.visual_strategy, testData.primaryType, testData.finalData.image2_table_data);
+    var image2FileName = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss') + '_' +
+      String(testData.title || 'image').substring(0, 10).replace(/[^a-zA-Z0-9가-힣]/g, '_') + '_02.svg';
+    var image2Blob = Utilities.newBlob(image2Svg, 'image/svg+xml', image2FileName);
+    var image2Url = uploadBlobToGitHub_(image2Blob, image2FileName);
+
+    Logger.log('🖼️ image2 SVG: ' + image2Url);
+    Logger.log('🧾 image2 SVG(앞 500자): ' + image2Svg.substring(0, 500));
+    return {
+      success: true,
+      image2SvgUrl: image2Url,
+      image2Svg: image2Svg
+    };
+  } catch (error) {
+    Logger.log('❌ testImageGenOnly_SVG 오류: ' + error.message);
+    Logger.log('❌ testImageGenOnly_SVG 스택: ' + error.stack);
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
 /**
  * =======================================================================
  * [NEW] [지시 #003] Blogger HTML 변환 모듈
@@ -6717,6 +7911,59 @@ function testGitHubImageUpload() {
  * @param {{title:string,url:string}[]=} relatedPosts - 관련 글 목록
  * @return {string} Blogger 에디터용 HTML 코드
  */
+function isMarkdownTableSeparatorLine_(line) {
+  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(String(line || '').trim());
+}
+
+function splitMarkdownTableRow_(line) {
+  var normalized = String(line || '').trim();
+  if (normalized.charAt(0) === '|') normalized = normalized.substring(1);
+  if (normalized.charAt(normalized.length - 1) === '|') normalized = normalized.substring(0, normalized.length - 1);
+  return normalized.split('|').map(function(cell) {
+    return String(cell || '').trim();
+  });
+}
+
+function convertMarkdownTableToHtml_(text) {
+  var tableText = String(text || '').trim();
+  if (!tableText) return '';
+
+  var lines = tableText.split('\n').map(function(line) {
+    return String(line || '').trim();
+  }).filter(function(line) {
+    return line !== '';
+  });
+
+  if (lines.length < 3 || !isMarkdownTableSeparatorLine_(lines[1])) {
+    return '';
+  }
+
+  var headers = splitMarkdownTableRow_(lines[0]);
+  var htmlParts = [];
+  htmlParts.push('<table style="border-collapse:collapse; width:100%; margin:20px 0;">');
+  htmlParts.push('<thead><tr>');
+  for (var h = 0; h < headers.length; h++) {
+    htmlParts.push('<th style="background:#2c5f8a; color:white; padding:10px; text-align:center;">' + escapeHtml(headers[h]) + '</th>');
+  }
+  htmlParts.push('</tr></thead>');
+  htmlParts.push('<tbody>');
+
+  for (var i = 2; i < lines.length; i++) {
+    var rowCells = splitMarkdownTableRow_(lines[i]);
+    if (rowCells.length === 1 && rowCells[0] === '') continue;
+    htmlParts.push('<tr' + ((i - 2) % 2 === 1 ? ' style="background:#f0f4f8;"' : '') + '>');
+    for (var c = 0; c < headers.length; c++) {
+      var cellValue = c < rowCells.length ? rowCells[c] : '';
+      htmlParts.push('<td style="border:1px solid #cccccc; padding:8px; text-align:center;">' + escapeHtml(String(cellValue || '').trim()) + '</td>');
+    }
+    htmlParts.push('</tr>');
+  }
+
+  htmlParts.push('</tbody>');
+  htmlParts.push('</table>');
+  return htmlParts.join('');
+}
+
 function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
   if (!docContent) return "";
   
@@ -6835,6 +8082,25 @@ function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
     if (line.indexOf('# ') === 0) {
       var markdownTitle = line.substring(2).trim();
       if (!markdownTitle || markdownTitle === String(title || '').trim()) {
+        continue;
+      }
+    }
+
+    if (line.charAt(0) === '|' && i + 1 < lines.length && isMarkdownTableSeparatorLine_(String(lines[i + 1] || '').trim())) {
+      var tableLines = [line];
+      var tableIndex = i + 1;
+      while (tableIndex < lines.length) {
+        var tableLine = String(lines[tableIndex] || '').trim();
+        if (!tableLine || tableLine.charAt(0) !== '|') break;
+        tableLines.push(tableLine);
+        tableIndex++;
+      }
+
+      var tableHtml = convertMarkdownTableToHtml_(tableLines.join('\n'));
+      if (tableHtml) {
+        html += tableHtml + "\n";
+        tagCount.div++;
+        i = tableIndex - 1;
         continue;
       }
     }
