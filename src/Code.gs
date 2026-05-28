@@ -55,7 +55,7 @@ function onOpen() {
       .addItem('전체 실행 (생성+발행)', 'runCompleteProcess')
       .addSeparator()
       .addItem('1단계: 글 생성', 'runGenerateOnly')
-      .addItem('🤖 OpenAI 이미지 생성', 'generateOpenAIImageOnly_')
+      .addItem('🤖 OpenAI 이미지 생성', 'generateOpenAIImage')
       .addItem('2단계: 발행', 'runPublishOnly')
       .addSeparator()
       .addItem('📸 자동생성 모드', 'setModeAuto_')
@@ -3942,7 +3942,7 @@ function generateOpenAIImageOnly_() {
     writeToControlSheet_('image1_url', openAiImage1.publicUrl, rowIndex);
 
     Logger.log('🖼️ image1 OpenAI URL 저장 완료: ' + openAiImage1.publicUrl);
-    SpreadsheetApp.getUi().alert('OpenAI 이미지 생성 완료. M열 URL을 확인하세요.');
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ OpenAI 이미지 생성 완료. M열 URL을 확인하세요.', '대산 블로그', 5);
 
     return {
       success: true,
@@ -3956,6 +3956,10 @@ function generateOpenAIImageOnly_() {
       error: error.message
     };
   }
+}
+
+function generateOpenAIImage() {
+  generateOpenAIImageOnly_();
 }
 
 function runPublishOnly() {
@@ -6786,7 +6790,7 @@ function generateImageWithOpenAI_(prompt, folderId, fileName) {
       prompt: prompt,
       n: 1,
       size: '1024x1024',
-      quality: 'high'
+      quality: 'low'
     };
 
     Logger.log('🎨 === OpenAI 이미지 생성 시작 ===');
