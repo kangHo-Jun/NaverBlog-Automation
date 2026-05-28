@@ -302,6 +302,8 @@ function getRelatedBloggerPostsByCategory_(category, currentTitle, maxResults) {
     var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID +
       '/posts?status=LIVE&fetchBodies=false&labels=' + encodeURIComponent(normalizedCategory) +
       '&maxResults=' + encodeURIComponent(String(limit + 3));
+    Logger.log('🔍 관련 글 조회: category=' + normalizedCategory);
+    Logger.log('🔍 요청 URL: ' + apiUrl);
 
     var response = UrlFetchApp.fetch(apiUrl, {
       method: 'get',
@@ -321,6 +323,7 @@ function getRelatedBloggerPostsByCategory_(category, currentTitle, maxResults) {
 
     var responseData = JSON.parse(responseText);
     var items = responseData.items || [];
+    Logger.log('🔍 API items 수: ' + items.length);
     var relatedPosts = [];
 
     for (var i = 0; i < items.length; i++) {
@@ -339,10 +342,68 @@ function getRelatedBloggerPostsByCategory_(category, currentTitle, maxResults) {
       if (relatedPosts.length >= limit) break;
     }
 
-    Logger.log('🔗 관련 글 추출 완료: ' + relatedPosts.length + '개');
+    if (relatedPosts.length === 0) {
+      Logger.log('⚠️ 카테고리 관련 글 없음 → 최근 글로 폴백');
+      relatedPosts = getRecentLivePosts_(normalizedTitle, limit);
+    }
+
+    Logger.log('🔗 최종 관련 글: ' + relatedPosts.length + '개');
     return relatedPosts;
   } catch (error) {
     Logger.log('⚠️ getRelatedBloggerPostsByCategory_ 오류: ' + error.message);
+    return [];
+  }
+}
+
+function getRecentLivePosts_(currentTitle, limit) {
+  var normalizedTitle = String(currentTitle || '').trim();
+  var maxCount = limit || 3;
+
+  try {
+    var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID +
+      '/posts?status=LIVE&fetchBodies=false&maxResults=' + encodeURIComponent(String(maxCount + 3));
+    Logger.log('🔍 최근 LIVE 글 폴백 요청 URL: ' + apiUrl);
+
+    var response = UrlFetchApp.fetch(apiUrl, {
+      method: 'get',
+      headers: {
+        Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+      },
+      muteHttpExceptions: true
+    });
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    Logger.log('📡 최근 LIVE 글 조회 응답 코드: ' + responseCode);
+    if (responseCode < 200 || responseCode >= 300) {
+      Logger.log('⚠️ 최근 LIVE 글 조회 실패: ' + responseText.substring(0, 200));
+      return [];
+    }
+
+    var responseData = JSON.parse(responseText);
+    var items = responseData.items || [];
+    var recentPosts = [];
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var itemTitle = String(item.title || '').trim();
+      var itemUrl = String(item.url || '').trim();
+
+      if (!itemTitle || !itemUrl) continue;
+      if (itemTitle === normalizedTitle) continue;
+
+      recentPosts.push({
+        title: itemTitle,
+        url: itemUrl
+      });
+
+      if (recentPosts.length >= maxCount) break;
+    }
+
+    Logger.log('🔗 최근 LIVE 글 폴백 결과: ' + recentPosts.length + '개');
+    return recentPosts;
+  } catch (error) {
+    Logger.log('⚠️ getRecentLivePosts_ 오류: ' + error.message);
     return [];
   }
 }
@@ -4343,6 +4404,12 @@ function runPublishOnly(seoFileId) {
       .map(function(l) { return l.trim().substring(0, 50); });
     category = detectCategory_(labels, finalData.highlight_keywords || [], title);
     relatedPosts = getRelatedBloggerPostsByCategory_(category, title, 3);
+    Logger.log('🔗 runPublishOnly 관련 글 후보 수: ' + ((relatedPosts || []).length));
+    if (relatedPosts && relatedPosts.length > 0) {
+      Logger.log('🔗 runPublishOnly 관련 글 제목: ' + relatedPosts.map(function(post) {
+        return String(post.title || '').trim();
+      }).join(' | '));
+    }
     Logger.log("4️⃣ Blogger HTML 변환");
     var htmlStepStart = new Date().getTime();
     htmlContent = convertToBloggerHTML(mappedContent, title, labels, relatedPosts);
@@ -8809,15 +8876,15 @@ function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
     
     // 소제목 (##) -> H2 (내용물만 이스케이프)
     if (line.indexOf('## ') === 0) {
-      var h2Text = escapeHtml(line.substring(3).trim());
-      html += "<h2 style=\"font-size:1.5em; font-weight:500; margin-top:2em; padding-top:1em; border-top:3px solid #2c5f8a; color:#1a1a1a;\">" + h2Text + "</h2>\n";
-      tagCount.h2++;
-      renderedH2++;
       if (!insertedCta && ctaInsertIndex > 0 && renderedH2 === ctaInsertIndex) {
         html += buildCtaHtml(ctaKeyword);
         tagCount.div++;
         insertedCta = true;
       }
+      var h2Text = escapeHtml(line.substring(3).trim());
+      html += "<h2 style=\"font-size:1.5em; font-weight:500; margin-top:2em; padding-top:1em; border-top:3px solid #2c5f8a; color:#1a1a1a;\">" + h2Text + "</h2>\n";
+      tagCount.h2++;
+      renderedH2++;
     }
     // 소제목 (###) -> H3
     else if (line.indexOf('### ') === 0) {
@@ -8917,8 +8984,11 @@ function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
   }
 
   if (relatedPosts && relatedPosts.length > 0) {
+    Logger.log('🔗 HTML 관련 글 블록 삽입: ' + relatedPosts.length + '개');
     html += buildRelatedPostsHtml(relatedPosts);
     tagCount.div++;
+  } else {
+    Logger.log('⚠️ HTML 관련 글 블록 삽입 스킵: relatedPosts 비어 있음');
   }
 
   html += buildSignatureHtml();
@@ -8969,7 +9039,7 @@ function testConvertToBloggerHTML() {
  * @return {string} 발행된 글 URL
  */
 function publishToBlogger(title, htmlContent, labels, publishMode, scheduledTime, highlightKeywords) {
-  var isDraft = true;
+  var isDraft = (publishMode !== '자동');
   var apiUrl = 'https://www.googleapis.com/blogger/v3/blogs/' + BLOG_ID + '/posts/' + (isDraft ? '?isDraft=true' : '');
 
   try {
