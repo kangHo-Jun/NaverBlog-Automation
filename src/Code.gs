@@ -70,6 +70,11 @@ function onOpen() {
       .addItem('③ 발행', 'runPublishOnly')
       .addSeparator()
       .addItem('🔄 초기화 (새 글 시작)', 'resetForNewPost')
+      .addSeparator()
+      .addItem('🗑️ 템플릿 캐시 초기화', 'clearTemplateCache')
+      .addSeparator()
+      .addItem('🔍 네이버 블로그 크롤링', 'crawlNaver_ByKeywords_FromSheet')
+      .addItem('⚙️ 크롤러 시트 버튼 설치', 'setupCrawlerSheet_')
       .addToUi();
   } catch (error) {
     Logger.log('⚠️ onOpen UI 생성 스킵: ' + error.message);
@@ -692,113 +697,7 @@ function getNewFilesToProcess() {
   return [newFiles[0]];
 }
 
-/**
- * Drive 기본 폴더 접근 테스트
- * 프로젝트 권한과 DriveApp 폴더 조회가 정상인지 가장 단순하게 확인할 때 사용
- */
-function testDriveOnly() {
-  var folder = DriveApp.getFolderById('1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8');
-  Logger.log('✅ 폴더명: ' + folder.getName());
-}
 
-/**
- * 입력/출력 폴더 접근 테스트
- * getNewFilesToProcess() 오류가 폴더 ID 또는 권한 문제인지 빠르게 확인할 때 사용
- */
-function testFolderAccess() {
-  try {
-    Logger.log("🔍 === 폴더 접근 테스트 ===");
-    Logger.log("INPUT_FOLDER_ID: " + CONFIG.INPUT_FOLDER_ID);
-    Logger.log("JSON_OUTPUT_FOLDER_ID: " + CONFIG.JSON_OUTPUT_FOLDER_ID);
-    
-    var inputFolder = DriveApp.getFolderById(CONFIG.INPUT_FOLDER_ID);
-    Logger.log("✅ 입력 폴더 접근 성공: " + inputFolder.getName());
-    
-    var jsonFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
-    Logger.log("✅ JSON 폴더 접근 성공: " + jsonFolder.getName());
-    
-    var fileCount = 0;
-    var files = inputFolder.getFiles();
-    while (files.hasNext() && fileCount < 5) {
-      var file = files.next();
-      fileCount++;
-      Logger.log("  - 파일 " + fileCount + ": " + file.getName());
-    }
-    
-    Logger.log("✅ 폴더 접근 테스트 완료");
-    return true;
-  } catch (error) {
-    Logger.log("❌ testFolderAccess 오류: " + error.message);
-    return false;
-  }
-}
-
-// 테스트 1: Drive 기본 권한 확인
-function dbg01_DriveBasic() {
-  Logger.log('=== Drive 기본 테스트 ===');
-  Logger.log('DriveApp 객체: ' + (DriveApp ? '존재' : '없음'));
-  try {
-    var files = DriveApp.getFiles();
-    Logger.log('getFiles(): ' + files.hasNext());
-  } catch (e) {
-    Logger.log('getFiles() 오류: ' + e.message);
-  }
-
-  try {
-    var folders = DriveApp.getFolders();
-    Logger.log('getFolders(): ' + folders.hasNext());
-  } catch (e) {
-    Logger.log('getFolders() 오류: ' + e.message);
-  }
-}
-
-// 테스트 2: Drive 폴더 접근 방식 비교
-function dbg02_FolderAccess() {
-  Logger.log('=== 폴더 접근 방식 비교 ===');
-
-  // 방식 1: getFolderById
-  try {
-    var f1 = DriveApp.getFolderById('1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8');
-    Logger.log('getFolderById: ✅ ' + f1.getName());
-  } catch (e) {
-    Logger.log('getFolderById: ❌ ' + e.message);
-  }
-
-  // 방식 2: getRootFolder
-  try {
-    var root = DriveApp.getRootFolder();
-    Logger.log('getRootFolder: ✅ ' + root.getName());
-  } catch (e) {
-    Logger.log('getRootFolder: ❌ ' + e.message);
-  }
-
-  // 방식 3: URL로 접근
-  try {
-    var f3 = DriveApp.getFileById('1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8');
-    Logger.log('getFileById: ✅ ' + f3.getName());
-  } catch (e) {
-    Logger.log('getFileById: ❌ ' + e.message);
-  }
-}
-
-// 테스트 3: 실행 계정 확인
-function dbg03_AccountCheck() {
-  Logger.log('=== 실행 계정 확인 ===');
-  Logger.log('실행 계정: ' + Session.getActiveUser().getEmail());
-  Logger.log('유효 계정: ' + Session.getEffectiveUser().getEmail());
-  Logger.log('TimeZone: ' + Session.getScriptTimeZone());
-}
-
-// 테스트 4: OAuth 스코프 확인
-function dbg04_OAuthScope() {
-  Logger.log('=== OAuth 스코프 확인 ===');
-  try {
-    var token = ScriptApp.getOAuthToken();
-    Logger.log('OAuth 토큰: ' + (token ? '존재 (' + token.substring(0, 20) + '...)' : '없음'));
-  } catch (e) {
-    Logger.log('OAuth 오류: ' + e.message);
-  }
-}
 
 /**
  * 통합 전처리 함수 (HTML + TXT 자동 구분)
@@ -4781,62 +4680,7 @@ function resetShotsiFile() {
  * 처리 완료된 원본 파일 삭제
  * @param {Array} createdDocs - 생성된 Docs 정보 배열
  */
-/**
- * 스타일 시트 시스템 테스트
- */
-function testStyleSheetSystem() {
-  Logger.log("🧪 === 스타일 시트 시스템 테스트 ===");
-  
-  try {
-    // 1. 시트2 초기화 테스트
-    Logger.log("1️⃣ 시트2 초기화 테스트");
-    initializeStyleSheet();
-    
-    // 2. B2 셀 읽기 테스트
-    Logger.log("2️⃣ B2 셀에서 스타일 번호 읽기 테스트");
-    var styleData = getStyleDataFromSheet();
-    
-    if (styleData) {
-      Logger.log("✅ 스타일 데이터 읽기 성공!");
-      Logger.log("📊 스타일 번호: " + styleData.number);
-      Logger.log("📊 글톤: " + styleData.writing_tone);
-      Logger.log("📊 문장스타일: " + styleData.sentence_style);
-    } else {
-      Logger.log("❌ 스타일 데이터 읽기 실패");
-    }
-    
-    // 3. 키워드 테스트
-    Logger.log("3️⃣ SEO 키워드 읽기 테스트");
-    var keywords = getSEOKeywordsFromC2();
-    Logger.log("🔑 키워드: [" + keywords.join(' | ') + "]");
-    
-    // 4. 강조 키워드 테스트
-    Logger.log("4️⃣ 강조 키워드 읽기 테스트");
-    var highlightKeywords = getHighlightKeywordsFromA2();
-    Logger.log("💎 강조 키워드: [" + highlightKeywords.join(' | ') + "]");
-    
-    // 5. 템플릿 테스트
-    Logger.log("5️⃣ 템플릿 읽기 테스트");
-    var templateData = getSelectedTemplate();
-    if (templateData) {
-      Logger.log("✅ 템플릿 데이터 읽기 성공!");
-      Logger.log("📄 템플릿: " + templateData.name);
-    }
-    
-    if (styleData && keywords.length > 0 && templateData) {
-      Logger.log("🎉 스타일 시트 시스템 테스트 성공!");
-      Logger.log("💡 이제 runCompleteProcess()를 실행하세요.");
-    } else {
-      Logger.log("⚠️ 설정을 확인하세요:");
-      if (!styleData) Logger.log("   - B2 셀에 스타일 번호 입력 (예: 1, 2, 3...)");
-      if (keywords.length === 0) Logger.log("   - C2 셀에 SEO 키워드 입력");
-      if (!templateData) Logger.log("   - D2 셀에 템플릿 선택");
-    }
-    
-  } catch (error) {
-    Logger.log("❌ 테스트 오류: " + error.message);
-  }
-}
+
 
 /**
  * 모든 처리 결과 초기화 (테스트용)
@@ -4966,59 +4810,7 @@ function showUsageGuide() {
   Logger.log("");
 }
 
-/**
- * 테스트: C2에서 키워드 읽기 확인
- */
-function testC2Reading() {
-  Logger.log("🧪 === C2 키워드 읽기 테스트 ===");
-  
-  var keywords = getSEOKeywordsFromC2();
-  var highlightKeywords = getHighlightKeywordsFromA2();
-  var weights = getWeightsFromSheet();
-  
-  Logger.log('🔑 SEO 키워드: [' + keywords.join(' | ') + ']');
-  Logger.log('💎 강조 키워드: [' + highlightKeywords.join(' | ') + ']');
-  Logger.log('📊 가중치: ' + JSON.stringify(weights));
-  
-  if (keywords.length > 0) {
-    Logger.log("✅ 키워드 읽기 성공!");
-    return true;
-  } else {
-    Logger.log("❌ 키워드 읽기 실패");
-    return false;
-  }
-}
 
-/**
- * TXT 파일 처리 테스트
- */
-function testTxtProcessing() {
-  Logger.log("🧪 === TXT 파일 처리 테스트 ===");
-  
-  try {
-    // 샘플 텍스트 (유튜브 자막 형식)
-    var sampleText = "이게 집에 들어가 도어 맞아요 이게\n\n" +
-                     "국내에서 영입만 가능한 도어\n\n" +
-                     "[음악]\n\n" +
-                     "안녕하세요 이성 PD 김현 연구원입니다";
-    
-    Logger.log("📝 원본 텍스트:\n" + sampleText);
-    
-    var cleaned = cleanYoutubeScript(sampleText);
-    Logger.log("\n🧹 정제된 텍스트:\n" + cleaned);
-    
-    var analyzed = analyzeTxtScript(sampleText);
-    Logger.log("\n📊 분석 결과:");
-    Logger.log("  - 파일 타입: " + analyzed.file_type);
-    Logger.log("  - 문단 수: " + analyzed.reference_snippets.length);
-    Logger.log("  - 키워드: " + analyzed.keywords_top.join(', '));
-    
-    Logger.log("✅ TXT 처리 테스트 완료!");
-    
-  } catch (error) {
-    Logger.log("❌ 테스트 오류: " + error.message);
-  }
-}
 
 /**
  * [추가] 제목 검증 및 로깅 함수
@@ -5179,126 +4971,7 @@ function extractBaseName(fileName) {
   return baseName;
 }
 
-/**
- * =======================================================================
- * 사용 예시
- * =======================================================================
- */
 
-/**
- * 예시 1: 특정 파일만 재처리
- */
-function example_reprocessTxtFile() {
-  // 방법 1: baseName을 직접 입력
-  var baseName = '지금 알아야 하는 3가지 트렌디한 도어 추천!(feat.도어명가) [Korean (auto-generated)] [GetSubs.cc]';
-  quickReprocess(baseName);
-}
-
-/**
- * 예시 2: 파일명에서 baseName 추출 후 재처리
- */
-function example_reprocessFromFileName() {
-  // Google Drive에 보이는 파일명 (확장자 포함)
-  var fileName = '지금 알아야 하는 3가지 트렌디한 도어 추천!(feat.도어명가) [Korean (auto-generated)] [GetSubs.cc].txt';
-  
-  // baseName 추출
-  var baseName = extractBaseName(fileName);
-  
-  // 재처리
-  quickReprocess(baseName);
-}
-
-/**
- * 예시 3: 대화형으로 baseName 확인
- */
-function example_checkBaseName() {
-  // 현재 처리 대기 중인 파일 확인
-  var nextFile = getNextPreprocessFileToSEO();
-  
-  if (nextFile) {
-    Logger.log('📋 다음 처리할 파일의 baseName:');
-    Logger.log('   "' + nextFile.file.baseName + '"');
-  } else {
-    Logger.log('⚠️ 처리 대기 중인 파일이 없습니다.');
-  }
-}
-
-/**
- * =======================================================================
- * 즉시 실행 함수 (귀하의 경우)
- * =======================================================================
- */
-
-/**
- * 문제의 TXT 파일 즉시 재처리
- * 
- * 이 함수를 바로 실행하세요!
- */
-function FIX_reprocessTxtFileNow() {
-  var baseName = '지금 알아야 하는 3가지 트렌디한 도어 추천!(feat.도어명가) [Korean (auto-generated)] [GetSubs.cc]';
-  
-  Logger.log('🔧 === 즉시 재처리 시작 ===');
-  Logger.log('📁 대상 파일: ' + baseName);
-  Logger.log('');
-  
-  quickReprocess(baseName);
-}
-
-/**
- * 삭제 테스트 함수 - 특정 파일 삭제 테스트
- */
-function testFileDelete() {
-  Logger.log("🧪 === 파일 삭제 테스트 ===");
-  
-  try {
-    var inputFolder = DriveApp.getFolderById(CONFIG.INPUT_FOLDER_ID);
-    var files = inputFolder.getFiles();
-    
-    if (!files.hasNext()) {
-      Logger.log('❌ 폴더에 파일이 없습니다.');
-      return;
-    }
-    
-    var file = files.next();
-    var fileName = file.getName();
-    var fileId = file.getId();
-    
-    Logger.log('📁 테스트 파일: ' + fileName);
-    Logger.log('🆔 파일 ID: ' + fileId);
-    
-    // 권한 확인
-    Logger.log('');
-    Logger.log('🔐 권한 확인:');
-    Logger.log('  소유자: ' + file.getOwner().getEmail());
-    Logger.log('  편집 가능: ' + (file.isShareableByEditors() ? '예' : '아니오'));
-    
-    // 삭제 권한 확인
-    var canDelete = false;
-    try {
-      file.setTrashed(false); // 이미 삭제되지 않았으면 아무 일도 안 함
-      canDelete = true;
-      Logger.log('  삭제 권한: ✓ 있음');
-    } catch (e) {
-      Logger.log('  삭제 권한: ✗ 없음 (' + e.message + ')');
-    }
-    
-    if (!canDelete) {
-      Logger.log('');
-      Logger.log('❌ 파일 삭제 권한이 없습니다.');
-      Logger.log('💡 해결 방법:');
-      Logger.log('  1. 파일 소유자에게 편집 권한 요청');
-      Logger.log('  2. 또는 파일을 직접 업로드한 계정으로 스크립트 실행');
-      return;
-    }
-    
-    Logger.log('');
-    Logger.log('✅ 파일 삭제 권한 확인 완료');
-    Logger.log('💡 실제 파일 삭제는 runCompleteProcessInMemory() 실행 시 자동 수행됩니다.');
-    
-  } catch (error) {
-    Logger.log('❌ 테스트 오류: ' + error.message);
-  }
-}
 
 /**
  * 모든 파일 연속 처리 (메모리 기반)
@@ -5738,93 +5411,7 @@ function debugOutputFolder() {
   }
 }
 
-/**
- * 입력 파일과 출력 문서 매칭 테스트
- */
-function testFileMatching() {
-  Logger.log("🧪 === 파일 매칭 테스트 ===");
-  
-  try {
-    var inputFolder = DriveApp.getFolderById(CONFIG.INPUT_FOLDER_ID);
-    var docsOutputFolder = DriveApp.getFolderById(CONFIG.DOCS_OUTPUT_FOLDER_ID);
-    
-    // 1. 입력 파일 정보
-    var inputFiles = inputFolder.getFiles();
-    var inputFile = null;
-    
-    while (inputFiles.hasNext()) {
-      var f = inputFiles.next();
-      var name = f.getName();
-      
-      if (/\.txt/i.test(name)) {
-        inputFile = f;
-        break;
-      }
-    }
-    
-    if (!inputFile) {
-      Logger.log("❌ 입력 파일을 찾을 수 없습니다.");
-      return;
-    }
-    
-    var inputName = inputFile.getName();
-    var baseName = inputName
-      .replace(/의 사본$/, '')
-      .replace(/\.[^.]+$/, '');
-    
-    Logger.log("📄 입력 파일: " + inputName);
-    Logger.log("📝 baseName: " + baseName);
-    Logger.log("");
-    
-    // 2. baseName에서 주요 키워드 추출
-    var keyWords = baseName.split(/[\s\[\]\(\)]+/).filter(function(w) {
-      return w.length > 2 && w !== 'Korean' && w !== 'auto' && w !== 'generated' && w !== 'GetSubs' && w !== 'cc';
-    }).slice(0, 5);
-    
-    Logger.log("🔑 추출된 주요 키워드 (" + keyWords.length + "개):");
-    for (var i = 0; i < keyWords.length; i++) {
-      Logger.log("  " + (i + 1) + ". " + keyWords[i]);
-    }
-    Logger.log("");
-    
-    // 3. 출력 문서들과 매칭 테스트
-    var docsFiles = docsOutputFolder.getFiles();
-    var docCount = 0;
-    
-    Logger.log("📋 출력 폴더의 문서들과 매칭:");
-    
-    while (docsFiles.hasNext()) {
-      var docFile = docsFiles.next();
-      var docName = docFile.getName();
-      docCount++;
-      
-      // 매칭 점수 계산
-      var matchCount = 0;
-      for (var k = 0; k < keyWords.length; k++) {
-        if (docName.indexOf(keyWords[k]) !== -1) {
-          matchCount++;
-        }
-      }
-      
-      var matchPercent = Math.round((matchCount / keyWords.length) * 100);
-      var threshold = Math.ceil(keyWords.length / 2);
-      var isMatch = matchCount >= threshold;
-      
-      Logger.log("  " + docCount + ". " + docName);
-      Logger.log("      매칭: " + matchCount + "/" + keyWords.length + " (" + matchPercent + "%)");
-      Logger.log("      결과: " + (isMatch ? "✅ 매칭됨" : "❌ 매칭 안 됨"));
-      Logger.log("");
-    }
-    
-    if (docCount === 0) {
-      Logger.log("  ⚠️ 출력 폴더에 문서가 없습니다.");
-      Logger.log("  💡 runCompleteProcessInMemory()를 먼저 실행하세요.");
-    }
-    
-  } catch (error) {
-    Logger.log("❌ 오류: " + error.message);
-  }
-}
+
 
 /**
  * =======================================================================
@@ -6881,6 +6468,56 @@ function addNaverStyleHighlight(body, text) {
  */
 
 /**
+ * Drive에 업로드된 MD 파일에서 ## PROMPT_TEXT 이하 텍스트를 추출해 반환.
+ * PropertiesService에 NAVER_CONFIG_FOLDER_ID가 설정되어 있어야 동작.
+ * 결과는 CacheService에 6시간 저장 (변경 즉시 반영하려면 clearTemplateCache() 실행).
+ */
+function loadTemplateConfig_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('naver_v7_template_config');
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
+  var config = { tone: null, layout: null };
+
+  try {
+    var folderId = PropertiesService.getScriptProperties().getProperty('NAVER_CONFIG_FOLDER_ID');
+    if (!folderId) {
+      Logger.log('⚠️ NAVER_CONFIG_FOLDER_ID 미설정 — 하드코딩 기본값 사용');
+      return config;
+    }
+
+    var folder = DriveApp.getFolderById(folderId);
+    var fileMap = { tone: 'template-tone.md', layout: 'template-layout.md' };
+
+    for (var key in fileMap) {
+      var iter = folder.getFilesByName(fileMap[key]);
+      if (iter.hasNext()) {
+        var text = iter.next().getBlob().getDataAsString('UTF-8');
+        var marker = '## PROMPT_TEXT\n';
+        var idx = text.indexOf(marker);
+        config[key] = idx !== -1 ? text.slice(idx + marker.length).trim() : null;
+      }
+    }
+
+    cache.put('naver_v7_template_config', JSON.stringify(config), 21600);
+    Logger.log('✅ 템플릿 설정 Drive 로드 완료');
+  } catch (e) {
+    Logger.log('⚠️ 템플릿 설정 로드 실패: ' + e.message + ' — 기본값 사용');
+  }
+
+  return config;
+}
+
+/** Drive MD 변경 후 즉시 반영하기 위해 캐시를 초기화합니다. */
+function clearTemplateCache() {
+  CacheService.getScriptCache().remove('naver_v7_template_config');
+  Logger.log('✅ 템플릿 캐시 초기화 완료');
+  toast_('템플릿 캐시 초기화 완료 — 다음 글 생성 시 Drive에서 재로드됩니다.');
+}
+
+/**
  * [신규] v7 테이블 레이아웃 HTML 프롬프트 생성 - 토큰 압축 버전
  */
 function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, templateData, styleData, geminiContext) {
@@ -6916,8 +6553,10 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     sectionCount = 7;
   }
 
-  // 압축된 시스템 프롬프트
-  var system = '[역할]\n' +
+  // Drive MD 파일에서 로드 (미설정 시 하드코딩 기본값 사용)
+  var tmplConfig = loadTemplateConfig_();
+
+  var defaultTone = '[역할]\n' +
     '당신은 건축자재 전문 회사의 블로그 담당 직원입니다.\n' +
     '제품 홍보가 목적이며 회사 입장에서 글을 씁니다.\n\n' +
     '[시점 원칙]\n' +
@@ -6928,9 +6567,12 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '- 수치, 통계, 사례는 반드시 제공된 데이터 기반만 사용\n' +
     '- 근거 없는 수치 임의 생성 절대 금지\n' +
     '- 데이터 없으면 수치 생략\n\n' +
-    styleInstructions + '\n' +
-    templateInstructions + '\n' +
-    '[출력 형식 - 고정 표준 템플릿]\n' +
+    '[작성 원칙]\n' +
+    '- 섹션별 사진 2개씩 배열\n' +
+    '- SEO 키워드 자연스럽게 배치\n' +
+    '- HTML 코드만 출력, 설명 절대 금지';
+
+  var defaultLayout = '[출력 형식 - 고정 표준 템플릿]\n' +
     '<table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:\'Noto Sans KR\',sans-serif;font-size:17px;line-height:1.9;color:#222;">\n\n' +
     '1. 제목: <tr><td style="font-size:28px;font-weight:bold;padding:20px 0 8px 0;">제목</td></tr>\n' +
     '2. 부제목: <tr><td style="color:#777;padding-bottom:30px;">부제목</td></tr>\n' +
@@ -6941,11 +6583,15 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '7. TIP박스: <tr><td style="padding:20px 0;"><table style="width:100%;background-color:#f0f0f0;border-collapse:collapse;"><tr><td style="padding:18px 20px;">💡 <b>TIP</b><br>내용</td></tr></table></td></tr>\n' +
     '8. 비교테이블: 별도 <table> 중첩 (헤더:#222배경 흰글씨, 짝수행:#f9f9f9배경)\n' +
     '9. 마무리: <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지<br>CTA</td></tr>\n\n' +
-    '</table>\n\n' +
-    '[작성 원칙]\n' +
-    '- 섹션별 사진 2개씩 배열\n' +
-    '- SEO 키워드 자연스럽게 배치\n' +
-    '- HTML 코드만 출력, 설명 절대 금지';
+    '</table>';
+
+  var toneSection = tmplConfig.tone || defaultTone;
+  var layoutSection = tmplConfig.layout || defaultLayout;
+
+  var system = toneSection + '\n\n' +
+    styleInstructions + '\n' +
+    templateInstructions + '\n' +
+    layoutSection;
 
   var geminiStr = '없음';
   if (geminiContext) {
@@ -7629,142 +7275,7 @@ function tempSetGeminiKey(KEY) {
   Logger.log('완료: GEMINI_API_KEY가 PropertiesService에 등록되었습니다.');
 }
 
-/**
- * Gemini API 연결 간단 테스트
- */
-function testGeminiAPI() {
-  try {
-    Logger.log("🧪 === Gemini API 테스트 시작 ===");
 
-    var apiKey = getGeminiKey_();
-    if (!apiKey) {
-      Logger.log("❌ Gemini API 키가 설정되지 않았습니다.");
-      return {
-        success: false,
-        error: 'Gemini API 키가 설정되지 않았습니다.'
-      };
-    }
-
-    var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
-    var payload = {
-      contents: [{
-        parts: [{
-          text: "안녕하세요. 연결 테스트입니다. 20자 이내로 '정상 연결'이라고만 답하세요."
-        }]
-      }],
-      generationConfig: {
-        temperature: 0
-      }
-    };
-
-    var response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    var responseCode = response.getResponseCode();
-    var responseText = response.getContentText();
-    Logger.log("📡 응답 코드: " + responseCode);
-    Logger.log("📝 응답 내용 (앞 100자): " + responseText.substring(0, 100));
-
-    if (responseCode !== 200) {
-      Logger.log("❌ Gemini API 오류 전체: " + responseText);
-      return {
-        success: false,
-        responseCode: responseCode,
-        responsePreview: responseText.substring(0, 100),
-        error: responseText
-      };
-    }
-
-    Logger.log("✅ Gemini API 테스트 성공");
-    return {
-      success: true,
-      responseCode: responseCode,
-      responsePreview: responseText.substring(0, 100)
-    };
-  } catch (error) {
-    Logger.log("❌ testGeminiAPI 실행 오류: " + error.message);
-    Logger.log("❌ testGeminiAPI 스택: " + error.stack);
-    return {
-      success: false,
-      error: error.message,
-      stack: error.stack
-    };
-  }
-}
-
-/**
- * Claude API 연결 간단 테스트
- */
-function testClaudeAPI() {
-  try {
-    Logger.log("🧪 === Claude API 테스트 시작 ===");
-
-    var apiKey = getClaudeKey_();
-    if (!apiKey) {
-      Logger.log("❌ Claude API 키가 설정되지 않았습니다.");
-      return {
-        success: false,
-        error: 'Claude API 키가 설정되지 않았습니다.'
-      };
-    }
-
-    var payload = {
-      model: CLAUDE_DEFAULTS.MODEL,
-      max_tokens: 64,
-      temperature: 0,
-      messages: [{
-        role: 'user',
-        content: '안녕하세요. 연결 테스트입니다. 20자 이내로 정상 연결이라고만 답하세요.'
-      }]
-    };
-
-    var response = UrlFetchApp.fetch(CLAUDE_DEFAULTS.ENDPOINT, {
-      method: 'post',
-      contentType: 'application/json; charset=utf-8',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': CLAUDE_DEFAULTS.VERSION
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    var responseCode = response.getResponseCode();
-    var responseText = response.getContentText();
-    Logger.log("📡 응답 코드: " + responseCode);
-    Logger.log("📝 응답 내용 (앞 100자): " + responseText.substring(0, 100));
-
-    if (responseCode < 200 || responseCode >= 300) {
-      Logger.log("❌ Claude API 테스트 실패");
-      Logger.log("❌ Claude API 오류 전체: " + responseText);
-      return {
-        success: false,
-        responseCode: responseCode,
-        responsePreview: responseText.substring(0, 100),
-        error: responseText
-      };
-    }
-
-    Logger.log("✅ Claude API 테스트 성공");
-    return {
-      success: true,
-      responseCode: responseCode,
-      responsePreview: responseText.substring(0, 100)
-    };
-  } catch (error) {
-    Logger.log("❌ testClaudeAPI 실행 오류: " + error.message);
-    Logger.log("❌ testClaudeAPI 스택: " + error.stack);
-    return {
-      success: false,
-      error: error.message,
-      stack: error.stack
-    };
-  }
-}
 
 /**
  * =======================================================================
@@ -7973,24 +7484,7 @@ function mapManualPhotosToPlaceholders_(docContent, imageFolderId, finalData, ti
   }
 }
 
-/**
- * mapPhotosToPlaceholders 함수 테스트를 위한 더미 데이터 실행 함수
- */
-function testMapPhotosToPlaceholders() {
-  var dummyContent = "안녕하세요. 제품 리뷰입니다.\n\n[사진1]\n이 제품의 디자인은 위와 같습니다.\n\n[사진2]\n성능 테스트 결과입니다.\n\n[사진3]\n구성품 목록입니다.";
-  
-  // 테스트를 위해 실제 Google Drive 폴더 ID를 아래에 입력하세요.
-  var testFolderId = "1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2"; 
-  
-  if (testFolderId === "PASTE_YOUR_FOLDER_ID_HERE") {
-    Logger.log("💡 테스트 안내: testMapPhotosToPlaceholders() 내 testFolderId를 실제 폴더 ID로 수정 후 실행하세요.");
-    return;
-  }
 
-  Logger.log("🧪 사진 매핑 테스트 시작...");
-  var result = mapPhotosToPlaceholders(dummyContent, testFolderId);
-  Logger.log("📝 결과 본문 (미리보기 500자):\n" + result.substring(0, 500));
-}
 
 function extractPhotoDescriptionFromHolder_(holder) {
   var descriptionMatch = String(holder || '').match(/:\s*([^\]]+)/);
@@ -9001,28 +8495,7 @@ function convertToBloggerHTML(docContent, title, seoKeywords, relatedPosts) {
   return html;
 }
 
-/**
- * convertToBloggerHTML 함수 테스트
- */
-function testConvertToBloggerHTML() {
-  var testTitle = "2026년 건축 트렌드: 친환경 창호의 진화";
-  var testContent = "## 1. 개요\n" +
-    "올해 가장 주목받는 기술은 **단열 성능**입니다.\n\n" +
-    "[[IMG::https%3A%2F%2Flh3.googleusercontent.com%2Fd%2F1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2::%EC%B0%BD%ED%98%B8%20%EB%8B%A8%EB%A9%B4%20%EC%98%88%EC%8B%9C]]\n\n" +
-    "## 2. 주요 특징\n" +
-    "**VOC 감소:** 실내 공기질 개선 효과를 기대할 수 있습니다.\n" +
-    "**단열 성능:** 계절별 냉난방 부담을 줄입니다.\n\n" +
-    "82% VOC 감소\n" +
-    "65% 단열 향상\n" +
-    "38% 유지보수 감소\n\n" +
-    "\"현장에서는 작은 자재 차이가 최종 만족도를 크게 바꿉니다.\"\n" +
-    "### 2.1 세부 사항\n" +
-    "프레임의 두께가 얇아지면서 시야가 넓어졌습니다.";
-    
-  Logger.log("🧪 Blogger HTML 변환 테스트 시작...");
-  var resultHtml = convertToBloggerHTML(testContent, testTitle, ['친환경 창호']);
-  Logger.log("📝 변환된 HTML 결과:\n" + resultHtml);
-}
+
 
 /**
  * =======================================================================
@@ -9197,13 +8670,321 @@ function updateControlSheetAfterPublish(title, postUrl, rowIndex, status) {
   }
 }
 
+
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  네이버 블로그 크롤러 (HTTP 직접 방식)
+//  시트 입력: B2=BLOG_ID, C2=키워드(쉼표 분리), D2=추가 키워드
+//  시트 출력: 시트2 → url / title / body
+// ═══════════════════════════════════════════════════════════════════════
+
+function crawlNaver_ByKeywords_FromSheet() {
+  var CFG = {
+    SHEET_ID: PropertiesService.getScriptProperties().getProperty('CRAWL_SHEET_ID') || '1hlP8hwb6PcUFyyPulXDH7cfGY4nkK9EcMXyjWIMaGCo',
+    INPUT_SHEET: '시트1',
+    OUTPUT_SHEET: '시트2',
+    MAX_POSTS: 30,
+    MAX_PAGES: 100,
+    REQUIRE_ALL: false,
+    UA_PC: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    UA_MOB: 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
+    HEADERS: { 'Accept-Language': 'ko-KR,ko;q=0.9' }
+  };
+
+  var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+  var inSheet = ss.getSheetByName(CFG.INPUT_SHEET) || ss.getActiveSheet();
+  var outSheet = ss.getSheetByName(CFG.OUTPUT_SHEET) || ss.insertSheet(CFG.OUTPUT_SHEET);
+
+  var BLOG_ID = (inSheet.getRange('B2').getDisplayValue() || '').trim();
+  var C2 = (inSheet.getRange('C2').getDisplayValue() || '').trim();
+  var D2 = (inSheet.getRange('D2').getDisplayValue() || '').trim();
+  var kwList = []
+    .concat(C2 ? C2.split(',') : [])
+    .concat(D2 ? D2.split(',') : [])
+    .map(function(s) { return s.trim(); })
+    .filter(Boolean);
+
+  if (!BLOG_ID) throw new Error('B2(BLOG_ID)가 비어 있습니다. 예: gundalin923');
+  if (!kwList.length) throw new Error('C2/D2 키워드를 입력하세요. 예: 다루끼,각재');
+
+  outSheet.clear();
+  outSheet.getRange(1, 1, 1, 3).setValues([['url', 'title', 'body']]);
+
+  // logNo 수집
+  var logNos = [];
+  for (var page = 1; page <= CFG.MAX_PAGES; page++) {
+    var listUrl = 'https://blog.naver.com/PostList.naver?blogId=' + encodeURIComponent(BLOG_ID) + '&categoryNo=0&currentPage=' + page;
+    var html = crawl_fetchTxt_(listUrl, { 'User-Agent': CFG.UA_PC, 'Referer': 'https://blog.naver.com/' + BLOG_ID }, CFG.HEADERS);
+    if (!html) break;
+    crawl_pushAll_(logNos, html, new RegExp('/' + BLOG_ID + '/(\\d{6,})', 'g'), 1);
+    crawl_pushAll_(logNos, html, /PostView\.(?:naver|nhn)\?[^"']*logNo=(\d{6,})/gi, 1);
+    crawl_pushAll_(logNos, html, /data-log-no=["'](\d{6,})["']/gi, 1);
+    crawl_pushAll_(logNos, html, /["']logNo["']\s*:\s*["'](\d{6,})["']/gi, 1);
+    var uniq = Array.from ? Array.from(new Set(logNos)) : crawl_uniq_(logNos);
+    logNos.length = 0;
+    for (var i = 0; i < uniq.length; i++) logNos.push(uniq[i]);
+    if (logNos.length >= CFG.MAX_POSTS * 3) break;
+    if (html.toLowerCase().indexOf('logno') === -1) break;
+    Utilities.sleep(200);
+  }
+
+  if (!logNos.length) {
+    Logger.log('logNo 0건. BLOG_ID 확인: ' + BLOG_ID);
+    return;
+  }
+
+  // 상세 + 키워드 필터
+  var rows = [];
+  var seen = {};
+  for (var li = 0; li < logNos.length; li++) {
+    if (rows.length >= CFG.MAX_POSTS) break;
+    var logNo = logNos[li];
+    try {
+      var pcUrl = 'https://blog.naver.com/' + BLOG_ID + '/' + logNo;
+      var deck = crawl_fetchTxt_(pcUrl, { 'User-Agent': CFG.UA_PC, 'Referer': 'https://blog.naver.com/' + BLOG_ID }, CFG.HEADERS);
+      if (!deck) continue;
+
+      var iSrc = crawl_getIframe_(deck);
+      var postUrl = iSrc ? (iSrc.indexOf('http') === 0 ? iSrc : 'https://blog.naver.com' + iSrc)
+                         : 'https://m.blog.naver.com/' + BLOG_ID + '/' + logNo;
+      var postHtml = crawl_fetchTxt_(postUrl, { 'User-Agent': CFG.UA_PC, 'Referer': pcUrl }, CFG.HEADERS)
+                  || crawl_fetchTxt_(postUrl, { 'User-Agent': CFG.UA_MOB, 'Referer': pcUrl }, CFG.HEADERS);
+      if (!postHtml) continue;
+
+      var title = crawl_getTitle_(postHtml);
+      if (!title || seen[title]) continue;
+
+      var body = crawl_grabBalanced_(postHtml, /<div[^>]+class=["'][^"']*se-main-container[^"']*["'][^>]*>/i)
+              || crawl_joinAllBalanced_(postHtml, /<div[^>]+class=["'][^"']*se_component_wrap[^"']*["'][^>]*>/ig)
+              || crawl_grabBalanced_(postHtml, /<div[^>]+id=["']postViewArea["'][^>]*>/i)
+              || crawl_grabBalanced_(postHtml, /<article[^>]*>/i);
+      if (!body) continue;
+
+      var text = crawl_toText_(body);
+      var haystack = (title + '\n' + text).toLowerCase().replace(/\s+/g, '');
+      var kws = kwList.map(function(k) { return k.toLowerCase().replace(/\s+/g, ''); });
+      var ok = CFG.REQUIRE_ALL
+        ? kws.every(function(k) { return k && haystack.indexOf(k) !== -1; })
+        : kws.some(function(k) { return k && haystack.indexOf(k) !== -1; });
+      if (!ok) continue;
+
+      rows.push([pcUrl, title, text]);
+      seen[title] = true;
+      Utilities.sleep(300);
+    } catch (e) {
+      Logger.log('상세 오류 logNo=' + logNo + ' :: ' + e);
+    }
+  }
+
+  if (rows.length) outSheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  Logger.log('완료: ' + rows.length + '건 저장 → ' + CFG.OUTPUT_SHEET);
+}
+
+// ── 내부 헬퍼 (crawl_ 접두사로 충돌 방지) ─────────────────────────────────
+
+function crawl_fetchTxt_(url, uaHeaders, commonHeaders) {
+  try {
+    var headers = {};
+    for (var k in commonHeaders) headers[k] = commonHeaders[k];
+    for (var k in uaHeaders) headers[k] = uaHeaders[k];
+    var r = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true, followRedirects: true, headers: headers });
+    return r.getResponseCode() === 200 ? r.getContentText() : '';
+  } catch (e) {
+    Logger.log('fetch 실패 ' + url + ' :: ' + e);
+    return '';
+  }
+}
+
+function crawl_pushAll_(bucket, s, re, idx) {
+  var m;
+  while ((m = re.exec(s)) !== null) bucket.push(m[idx]);
+}
+
+function crawl_uniq_(arr) {
+  var seen = {}, out = [];
+  for (var i = 0; i < arr.length; i++) {
+    if (!seen[arr[i]]) { seen[arr[i]] = true; out.push(arr[i]); }
+  }
+  return out;
+}
+
+function crawl_getIframe_(h) {
+  var m = h.match(/<iframe[^>]+id=["']mainFrame["'][^>]+src=["']([^"']+)["']/i);
+  if (m && m[1]) return m[1];
+  m = h.match(/<iframe[^>]+src=["']([^"']*PostView\.(?:naver|nhn)\?[^"']+)["']/i);
+  return m && m[1] ? m[1] : '';
+}
+
+function crawl_getTitle_(h) {
+  var m = h.match(/<meta\s+property=["']og:title["']\s+content=["']([\s\S]*?)["']/i);
+  if (m && m[1]) return crawl_decode_(m[1]).trim();
+  m = h.match(/<title>([\s\S]*?)<\/title>/i);
+  if (m && m[1]) return crawl_decode_(m[1]).trim().replace(/\s*:\s*네이버 블로그\s*$/i, '');
+  return '';
+}
+
+function crawl_grabBalanced_(h, startRe) {
+  var s = startRe.exec(h);
+  if (!s) return '';
+  var i0 = s.index;
+  var open = /<div\b[^>]*>/ig, close = /<\/div>/ig;
+  open.lastIndex = i0; close.lastIndex = i0;
+  var depth = 0, started = false, o, c;
+  while (true) {
+    o = open.exec(h); c = close.exec(h);
+    if (!started) { if (!o) return ''; started = true; depth = 1; continue; }
+    if (!c) return '';
+    if (o && o.index < c.index) depth++;
+    else { depth--; if (depth === 0) return h.substring(i0, close.lastIndex); }
+  }
+}
+
+function crawl_joinAllBalanced_(h, reG) {
+  var out = [], re = reG, m;
+  while ((m = re.exec(h)) !== null) {
+    var tag = m[0];
+    var blk = crawl_grabBalanced_(h.slice(m.index), new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    if (blk) out.push(blk);
+    re.lastIndex = m.index + (blk ? blk.length : tag.length);
+  }
+  return out.length ? out.join('\n') : '';
+}
+
+function crawl_toText_(x) {
+  return crawl_decode_(
+    x.replace(/<(br|BR)\s*\/?>/g, '\n')
+     .replace(/<\/(p|div|section|li|h[1-6]|tr|td|blockquote|article|figure|figcaption)>/gi, '\n')
+     .replace(/<script[\s\S]*?<\/script>/gi, '')
+     .replace(/<style[\s\S]*?<\/style>/gi, '')
+     .replace(/<img[\s\S]*?>/gi, '')
+     .replace(/<video[\s\S]*?<\/video>/gi, '')
+     .replace(/<[^>]+>/g, ''))
+    .replace(/ /g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function crawl_decode_(s) {
+  if (!s) return '';
+  var map = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+  s = s.replace(/&(amp|lt|gt|quot|#39);/g, function(m) { return map[m] || m; });
+  s = s.replace(/&#(\d+);/g, function(_, n) { return String.fromCharCode(parseInt(n, 10)); });
+  s = s.replace(/&#x([0-9a-fA-F]+);/g, function(_, n) { return String.fromCharCode(parseInt(n, 16)); });
+  return s;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  크롤러 시트 버튼 설치 & 이벤트
+// ═══════════════════════════════════════════════════════════════════════
+
 /**
- * publishToBlogger 함수 테스트
+ * 시트1에 입력 레이블 + 체크박스 버튼(실행/초기화) 설치
+ * 메뉴 > ⚙️ 크롤러 시트 버튼 설치 로 실행
  */
-function testPublishToBlogger() {
-  var testTitle = "테스트 발행";
-  var testHtml = "<h1>테스트</h1><p>자동 발행 테스트입니다.</p>";
-  var testLabels = ["테스트", "자동화"];
-  var url = publishToBlogger(testTitle, testHtml, testLabels);
-  Logger.log("발행 URL: " + url);
+function setupCrawlerSheet_() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty('CRAWL_SHEET_ID')
+              || '1hlP8hwb6PcUFyyPulXDH7cfGY4nkK9EcMXyjWIMaGCo';
+  var ss = SpreadsheetApp.openById(sheetId);
+  var s = ss.getSheetByName('시트1') || ss.getActiveSheet();
+
+  // ── 행 1: 헤더 ──────────────────────────────────────────────────────
+  s.getRange('A1:F1').merge()
+    .setValue('🔍 네이버 블로그 크롤러')
+    .setBackground('#1a73e8').setFontColor('#ffffff')
+    .setFontSize(13).setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  s.setRowHeight(1, 38);
+
+  // ── 행 2: 입력 레이블 ──────────────────────────────────────────────
+  s.getRange('A2').setValue('블로그 ID').setFontWeight('bold').setBackground('#f1f3f4');
+  s.getRange('B2').setBackground('#ffffff')
+    .setBorder(true,true,true,true,null,null,'#dadce0', SpreadsheetApp.BorderStyle.SOLID)
+    .setNote('예: gundalin923');
+
+  s.getRange('C2').setValue('키워드').setFontWeight('bold').setBackground('#f1f3f4');
+  s.getRange('D2').setBackground('#ffffff')
+    .setBorder(true,true,true,true,null,null,'#dadce0', SpreadsheetApp.BorderStyle.SOLID)
+    .setNote('쉼표로 여러 키워드 구분 가능. 예: 다루끼,각재');
+
+  // ── 행 3: 체크박스 버튼 ────────────────────────────────────────────
+  // 실행 버튼
+  s.getRange('A3').insertCheckboxes().setValue(false);
+  s.getRange('B3').setValue('▶ 크롤링 실행')
+    .setBackground('#34a853').setFontColor('#ffffff')
+    .setFontWeight('bold').setHorizontalAlignment('center')
+    .setBorder(true,true,true,true,null,null,'#1e8e3e', SpreadsheetApp.BorderStyle.SOLID);
+
+  // 초기화 버튼
+  s.getRange('C3').insertCheckboxes().setValue(false);
+  s.getRange('D3').setValue('🗑️ 결과 초기화')
+    .setBackground('#ea4335').setFontColor('#ffffff')
+    .setFontWeight('bold').setHorizontalAlignment('center')
+    .setBorder(true,true,true,true,null,null,'#c5221f', SpreadsheetApp.BorderStyle.SOLID);
+
+  // ── 열 너비 ────────────────────────────────────────────────────────
+  s.setColumnWidth(1, 32);
+  s.setColumnWidth(2, 160);
+  s.setColumnWidth(3, 32);
+  s.setColumnWidth(4, 160);
+  s.setRowHeight(3, 32);
+
+  // ── 시트2 헤더 보장 ────────────────────────────────────────────────
+  var out = ss.getSheetByName('시트2') || ss.insertSheet('시트2');
+  if (out.getLastRow() === 0) {
+    out.getRange(1,1,1,3).setValues([['url','title','body']]);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    '버튼 설치 완료!\n\n'
+    + 'B2: 블로그 ID 입력\n'
+    + 'D2: 키워드 입력\n'
+    + 'A3 체크박스: 크롤링 실행\n'
+    + 'C3 체크박스: 결과 초기화'
+  );
+}
+
+/** 시트2 결과 행 전체 삭제 (헤더 유지) */
+function clearCrawlOutput_() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty('CRAWL_SHEET_ID')
+              || '1hlP8hwb6PcUFyyPulXDH7cfGY4nkK9EcMXyjWIMaGCo';
+  var ss = SpreadsheetApp.openById(sheetId);
+  var out = ss.getSheetByName('시트2');
+  if (!out) { Logger.log('시트2 없음'); return; }
+  var last = out.getLastRow();
+  if (last > 1) out.deleteRows(2, last - 1);
+  Logger.log('✅ 결과 시트 초기화 완료');
+}
+
+/**
+ * 체크박스 클릭 감지 → 실행/초기화 트리거
+ * 시트1 A3 체크 → crawlNaver_ByKeywords_FromSheet()
+ * 시트1 C3 체크 → clearCrawlOutput_()
+ *
+ * 주의: Simple trigger는 openById 불가 → 설치형 트리거 필요 시
+ *       onEditInstallable_() 을 트리거 등록하여 사용
+ */
+function onEdit(e) {
+  var range = e.range;
+  var sheet = range.getSheet();
+  if (sheet.getName() !== '시트1') return;
+  var cell = range.getA1Notation();
+
+  if (cell === 'A3' && e.value === 'TRUE') {
+    range.setValue(false);
+    // B2(블로그ID), D2(키워드) → 기존 crawlNaver 함수가 읽는 B2/C2/D2에 복사
+    var blogId = sheet.getRange('B2').getValue();
+    var keyword = sheet.getRange('D2').getValue();
+    sheet.getRange('B2').setValue(blogId);
+    sheet.getRange('C2').setValue(keyword);
+    crawlNaver_ByKeywords_FromSheet();
+  }
+
+  if (cell === 'C3' && e.value === 'TRUE') {
+    range.setValue(false);
+    clearCrawlOutput_();
+    SpreadsheetApp.getUi().alert('결과 시트(시트2)가 초기화되었습니다.');
+  }
 }
