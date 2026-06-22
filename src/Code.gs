@@ -9211,8 +9211,5 @@ function testPublishToBlogger() {
 
 function openInputFolder_() {
   var url = 'https://drive.google.com/drive/folders/' + CONFIG.INPUT_FOLDER_ID;
-  var html = HtmlService.createHtmlOutput(
-    '<script>window.open("' + url + '", "_blank"); google.script.host.close();</script>'
-  ).setWidth(10).setHeight(10);
-  SpreadsheetApp.getUi().showModalDialog(html, '폴더 열기');
+  Browser.msgBox('업로드 폴더 URL', url, Browser.Buttons.OK);
 }
