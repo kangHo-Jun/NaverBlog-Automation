@@ -1979,3 +1979,13 @@ function processNextSEOFile_V7HTML(geminiContext) {
       'application/json',
       finalFileName
     );
+    jsonOutputFolder.createFile(finalBlob);
+    Logger.log('✅ v7 HTML SEO 처리 완료: ' + finalFileName);
+    Logger.log('📊 남은 파일: ' + remaining + '개');
+    
+    toast_('v7 HTML 처리 완료: ' + baseName + ' (남은: ' + remaining + '개)');
+    
+  } catch (error) {
+    Logger.log('❌ v7 SEO 처리 오류: ' + error.message);
+  }
+}
