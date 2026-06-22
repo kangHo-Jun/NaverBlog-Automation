@@ -1873,21 +1873,6 @@ function STEP_D2_SaveAsHTML() {
 }
 
 /**
- * [신규] v7 HTML 전용 SEO 처리 함수 - 토큰 압축 버전
- */
-    jsonOutputFolder.createFile(finalBlob);
-
-    Logger.log('✅ v7 HTML SEO 처리 완료: ' + finalFileName);
-    Logger.log('📊 남은 파일: ' + remaining + '개');
-    
-    toast_('v7 HTML 처리 완료: ' + baseName + ' (남은: ' + remaining + '개)');
-    
-  } catch (error) {
-    Logger.log('❌ v7 SEO 처리 오류: ' + error.message);
-  }
-}
-
-/**
  * 체크박스 클릭 감지 → 실행/초기화 트리거
  * 시트1 A3 체크 → crawlNaver_ByKeywords_FromSheet()
  * 시트1 C3 체크 → clearCrawlOutput_()
