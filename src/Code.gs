@@ -70,7 +70,6 @@ function onOpen() {
       .addItem('③ 발행', 'runPublishOnly')
       .addSeparator()
       .addItem('🔄 초기화 (새 글 시작)', 'resetForNewPost')
-      .addItem('📁 업로드 폴더 열기', 'openInputFolder_')
       .addToUi();
   } catch (error) {
     Logger.log('⚠️ onOpen UI 생성 스킵: ' + error.message);
@@ -9207,9 +9206,4 @@ function testPublishToBlogger() {
   var testLabels = ["테스트", "자동화"];
   var url = publishToBlogger(testTitle, testHtml, testLabels);
   Logger.log("발행 URL: " + url);
-}
-
-function openInputFolder_() {
-  var url = 'https://drive.google.com/drive/folders/' + CONFIG.INPUT_FOLDER_ID;
-  Browser.msgBox('업로드 폴더 URL', url, Browser.Buttons.OK);
 }
