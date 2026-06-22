@@ -9212,7 +9212,7 @@ function testPublishToBlogger() {
 function openInputFolder_() {
   var url = 'https://drive.google.com/drive/folders/' + CONFIG.INPUT_FOLDER_ID;
   var html = HtmlService.createHtmlOutput(
-    '<a href="' + url + '" target="_blank" style="font-size:16px;">📁 업로드 폴더 열기</a>'
-  ).setWidth(400).setHeight(100);
-  SpreadsheetApp.getUi().showModalDialog(html, '업로드 폴더');
+    '<script>window.open("' + url + '", "_blank"); google.script.host.close();</script>'
+  ).setWidth(10).setHeight(10);
+  SpreadsheetApp.getUi().showModalDialog(html, '폴더 열기');
 }
