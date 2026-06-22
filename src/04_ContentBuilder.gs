@@ -1876,3 +1876,106 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     user: user
   };
 }
+function processNextSEOFile_V7HTML(geminiContext) {
+  try {
+    Logger.log("🔄 === v7 HTML 테이블 레이아웃 SEO 처리 ===");
+    
+    var nextFileInfo = getNextPreprocessFileToSEO();
+    
+    if (!nextFileInfo) {
+      Logger.log('✅ 처리할 새로운 파일이 없습니다.');
+      toast_('모든 파일 처리 완료!');
+      return;
+    }
+    
+    var fileInfo = nextFileInfo.file;
+    var baseName = fileInfo.baseName;
+    var remaining = nextFileInfo.totalRemaining - 1;
+    
+    Logger.log('🔄 처리 중: ' + baseName);
+    
+    var jsonOutputFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
+    var seoKeywords = getSEOKeywordsFromC2();
+    var highlightKeywords = getHighlightKeywordsFromA2();
+    var templateData = getSelectedTemplate();
+    var styleData = getStyleDataFromSheet();
+    var apiKey = getClaudeKey_();
+    
+    if (seoKeywords.length === 0 || !apiKey) {
+      Logger.log("❌ SEO 키워드 또는 API 키가 없습니다.");
+      return;
+    }
+    
+    // 시트2(스타일) 및 시트3(템플릿) 필드 출력 로그
+    Logger.log('📊 [시트2 Style] 글톤:' + styleData.writing_tone + ', 문장스타일:' + styleData.sentence_style + ', 개인터치:' + styleData.personal_touch + ', 시각풍부도:' + styleData.visual_richness + ', 내러티브플로우:' + styleData.narrative_flow + ', 스타일특징:' + styleData.style_features + ', 전문성레벨:' + styleData.expertise_level + ', 평균문장길이:' + styleData.avg_sentence_len);
+    Logger.log('📊 [시트3 Template] 구조:' + templateData.content_structure + ', 핵심사항:' + templateData.key_focus_areas + ', SEO전략:' + templateData.seo_strategy + ', 사진구성:' + templateData.photo_guide_type);
+    
+    // 파일 로드
+    var preprocessFiles = jsonOutputFolder.getFilesByName(baseName + "_preprocess.json");
+    if (!preprocessFiles.hasNext()) {
+      Logger.log("❌ 전처리 파일을 찾을 수 없습니다: " + baseName);
+      return;
+    }
+    
+    var preprocessData = JSON.parse(preprocessFiles.next().getBlob().getDataAsString());
+    
+    // v7 압축 프롬프트 생성
+    var prompt = createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, templateData, styleData, geminiContext);
+    
+    Logger.log('🎯 SEO 키워드: ' + seoKeywords.join(', '));
+    Logger.log('💎 강조 키워드: ' + highlightKeywords.join(', '));
+    Logger.log('📊 프롬프트 크기: 시스템 ' + prompt.system.length + '자, 사용자 ' + prompt.user.length + '자');
+    
+    var payload = {
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 8000,
+      temperature: 0.3,
+      system: prompt.system,
+      messages: [{
+        role: 'user',
+        content: prompt.user
+      }]
+    };
+
+    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json; charset=utf-8',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText('UTF-8');
+
+    if (responseCode < 200 || responseCode >= 300) {
+      Logger.log('❌ Claude API 오류 ' + responseCode + ': ' + responseText);
+      return;
+    }
+
+    var jsonResponse = JSON.parse(responseText);
+    var finalContent = jsonResponse.content[0].text;
+    
+    // HTML 코드만 추출 (마크다운 코드블록 제거)
+    finalContent = finalContent.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    var finalJson = {
+      generated_at: new Date().toISOString(),
+      baseName: baseName,
+      file_type: 'html_v7',
+      seo_keywords: seoKeywords,
+      highlight_keywords: highlightKeywords,
+      template_data: templateData,
+      content: finalContent,
+      model: payload.model
+    };
+
+    var finalFileName = baseName + "_final_seo.json";
+    var finalBlob = Utilities.newBlob(
+      JSON.stringify(finalJson, null, 2),
+      'application/json',
+      finalFileName
+    );
