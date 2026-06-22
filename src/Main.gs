@@ -1902,3 +1902,53 @@ function onEdit(e) {
     SpreadsheetApp.getUi().alert('결과 시트(시트2)가 초기화되었습니다.');
   }
 }
+
+function runV7HTMLPipeline() {
+  Logger.log("🚀 === v7 HTML 전체 파이프라인 실행 ===");
+  
+  try {
+    var jsonFolder = DriveApp.getFolderById(CONFIG.JSON_OUTPUT_FOLDER_ID);
+    var fileIterator = jsonFolder.getFiles();
+    var filesToDelete = [];
+    
+    while (fileIterator.hasNext()) {
+      var file = fileIterator.next();
+      var fileName = file.getName();
+      if (fileName.indexOf('_preprocess.json') !== -1 || fileName.indexOf('_final_seo.json') !== -1) {
+        filesToDelete.push(file);
+      }
+    }
+    
+    var deleteCount = 0;
+    for (var i = 0; i < filesToDelete.length; i++) {
+      filesToDelete[i].setTrashed(true);
+      deleteCount++;
+    }
+    Logger.log("🗑️ 기존 JSON 파일 삭제 완료: " + deleteCount + "개");
+  } catch (e) {
+    Logger.log("⚠️ JSON 파일 삭제 중 오류 발생: " + e.message);
+  }
+  
+  try {
+    Logger.log("1️⃣ 파일 전처리");
+    STEP_A_preprocessFiles();
+    Utilities.sleep(2000);
+    
+    var geminiContext = STEP_B_geminiAnalysis();
+    Utilities.sleep(2000);
+    
+    Logger.log("3️⃣ v7 HTML SEO 처리");
+    processNextSEOFile_V7HTML(geminiContext);
+    Utilities.sleep(2000);
+    
+    Logger.log("4️⃣ HTML 파일 저장");
+    STEP_D2_SaveAsHTML();
+    
+    Logger.log("🎯 v7 HTML 파이프라인 완료!");
+    toast_('v7 HTML 파이프라인 완료!');
+    
+  } catch (error) {
+    Logger.log("❌ 파이프라인 오류: " + error.message);
+    Logger.log("스택: " + error.stack);
+  }
+}
