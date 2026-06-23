@@ -6928,6 +6928,20 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '- 수치, 통계, 사례는 반드시 제공된 데이터 기반만 사용\n' +
     '- 근거 없는 수치 임의 생성 절대 금지\n' +
     '- 데이터 없으면 수치 생략\n\n' +
+    '[브랜드 노출 원칙]\n' +
+    '- 브랜드 노출 시 "대산을 통해 공급되는", "대산에서 취급하는", "대산 공식 유통" 표현 사용\n' +
+    '- 글 1편당 자연스러운 맥락에서 1~2회만 노출 (광고성 반복 금지)\n' +
+    '- 제품명 언급 시 공급처로서 대산을 연결: "LX PF보드 (대산 공급)" 형식 가능\n\n' +
+    '[AI 티 방지 원칙]\n' +
+    '- "~를 통해" 남발 금지 → "~로", "~해서"로 대체\n' +
+    '- "~에 대해" → 목적격 조사로 직결\n' +
+    '- 이중피동 "~되어진다" 금지 → "~된다"\n' +
+    '- "결론적으로/따라서/이를 통해" 3회 초과 금지\n' +
+    '- "또한/나아가/아울러" 문두 남발 금지 (2회 이하)\n' +
+    '- "시사하는 바가 크다" 등 AI 관용구 금지\n' +
+    '- 연결어미 뒤 쉼표 금지 (-고, -며, -지만 뒤 쉼표 삭제)\n' +
+    '- 문장 길이 균일화 금지 (단문/장문 자연스럽게 혼용)\n\n' +
+    (loadMaterialCautions_() ? '[자재별 시공 주의사항]\n' + loadMaterialCautions_() + '\n\n' : '') +
     styleInstructions + '\n' +
     templateInstructions + '\n' +
     '[출력 형식 - 고정 표준 템플릿]\n' +
@@ -9225,4 +9239,20 @@ function testPublishToBlogger() {
   var testLabels = ["테스트", "자동화"];
   var url = publishToBlogger(testTitle, testHtml, testLabels);
   Logger.log("발행 URL: " + url);
+}
+
+function loadMaterialCautions_() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('naver_material_cautions');
+    if (cached) return cached;
+    var file = DriveApp.getFileById('1hEoaZ8NfY6VM0ESwcMulBFGUm0yybJNI');
+    var result = file.getBlob().getDataAsString();
+    cache.put('naver_material_cautions', result, 21600);
+    Logger.log('✅ material-cautions_naver.md 로드 완료');
+    return result;
+  } catch(e) {
+    Logger.log('⚠️ material-cautions_naver.md 로드 실패: ' + e.message);
+    return '';
+  }
 }
