@@ -6940,11 +6940,13 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '6. 사진박스: <tr><td><table style="width:100%;background-color:#f0f0f0;border-collapse:collapse;"><tr><td style="padding:25px;text-align:center;color:#888;">📷 사진 N: 설명</td></tr></table></td></tr>\n' +
     '7. TIP박스: <tr><td style="padding:20px 0;"><table style="width:100%;background-color:#f0f0f0;border-collapse:collapse;"><tr><td style="padding:18px 20px;">💡 <b>TIP</b><br>내용</td></tr></table></td></tr>\n' +
     '8. 비교테이블: 별도 <table> 중첩 (헤더:#222배경 흰글씨, 짝수행:#f9f9f9배경)\n' +
-    '9. 마무리: <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지<br>CTA</td></tr>\n\n' +
+    '9. FAQ: <details><summary>❓ 질문 내용</summary><p>답변 내용</p></details> 형식으로 6개 작성, Q/A 접두사 없음\n' +
+    '10. 마무리: <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지 요약 (150자 이상)<br>독자 소통 유도 문구<br>CTA (상담/문의 안내)</td></tr>\n\n' +
     '</table>\n\n' +
     '[작성 원칙]\n' +
     '- 섹션별 사진 2개씩 배열\n' +
     '- SEO 키워드 자연스럽게 배치\n' +
+    '- 글 시작은 반드시 독자와 공감하는 인삿말 100자 이상 ("안녕하세요! 이런 적 있으시죠?" 형식)\n' +
     '- HTML 코드만 출력, 설명 절대 금지';
 
   var geminiStr = '없음';
