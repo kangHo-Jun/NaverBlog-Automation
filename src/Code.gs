@@ -38,8 +38,8 @@ const CLAUDE_DEFAULTS = {
 
 // 🗂️ 폴더 분리 설정
 const CONFIG = {
-  INPUT_FOLDER_ID: '1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8',      // 업로드 파일 폴더 (메인 처리용)
-  PROCESSED_SOURCE_FOLDER_ID: '1KIex4c3z-g3Kvlf3DoTX-ziUDl_R8-a1', // 글 생성 완료 원본 보관 폴더
+  INPUT_FOLDER_ID: '1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2',      // 업로드 파일 폴더 (메인 처리용)
+  PROCESSED_SOURCE_FOLDER_ID: '1LZoAigieMnmCaPtbCntkwFBVk878cot_', // 글 생성 완료 원본 보관 폴더
   STYLE_ANALYSIS_FOLDER_ID: '1viEjA-r-o6srdtRHMU0t5gm7ucDpp6Cz', // 스타일 분석 전용 폴더 (신규)
   JSON_OUTPUT_FOLDER_ID: '1wr_0xqWOqStu7AFw3NP9RktXA-f7AR0o',  // JSON 파일 다운로드 폴더
   DOCS_OUTPUT_FOLDER_ID: '1u5ZSrhZPLjS4q5jTUdRP-zEdDDNaCY8W'   // 구글독스 파일 다운로드 폴더
