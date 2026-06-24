@@ -1,71 +1,80 @@
-# 프로젝트 기본 정보
+# context
 
-- 프로젝트명: SEO 블로그 자동화 시스템 (Google Docs 출력)
+## 프로젝트 정체성
+- 프로젝트명: `NaverBlog-Automation`
+- 목적: 건축자재 원본 자료를 읽어 네이버 블로그용 HTML 글을 자동 생성하고 Drive에 결과 파일을 저장
+- 현재 주력 파이프라인: `runV7HTMLPipeline()`
+- 코드 파일: `src/Code.gs`
+- Apps Script ID: `1LjJcIC1lhD9x9Koy1IFWNC-9Zc1ssvbJQkSSCUVmxOyv76AyHzjbBdUl`
+
+## 핵심 시스템 구조
+```text
+입력 파일 업로드
+  → STEP_A_preprocessFiles()
+  → STEP_B_geminiAnalysis()
+  → processNextSEOFile_V7HTML()
+    → createV7HTMLPrompt()
+  → STEP_D2_SaveAsHTML()
+  → 결과 HTML 저장
+```
+
+## 핵심 시트/폴더
 - 컨트롤 시트 ID: `1ln-FEi1W0ZPKmVFmBUp6iuQ8dm6ijoGVFB6qqCFP1Q0`
-- Apps Script ID: `11Oqwz80T8dmsZoYbP4Xh7EsMQMDodK8BwIqQx5V2sltSiZlD4Ji4-et_`
-- 출력 플랫폼: Google Docs → 네이버 블로그 수동 복사
-- AI: Claude Sonnet (`CLAUDE_API_KEY`)
+- 시트1: 운영 입력/상태
+- 시트2: 스타일 정의
+- 시트3: 템플릿 정의
 
-# 완료된 기능
+### Drive 폴더
+- 입력: `1zhLKKQBOAxH1twa-oCdbKB_tS-w5z7A2`
+- 처리완료 원본: `1LZoAigieMnmCaPtbCntkwFBVk878cot_`
+- 스타일 분석: `1viEjA-r-o6srdtRHMU0t5gm7ucDpp6Cz`
+- JSON 출력: `15AXwc1WiLraCJYlt4pXIjkb097By3z9k`
+- 결과 출력: `182B3-CSkXS5DYRhX9SyH_3SDax3pzhuD`
 
-- 글 생성 파이프라인
-  - `runCompleteProcessInMemory()`: 전처리 → Claude SEO 글 생성 → Google Docs 저장 (메모리 기반)
-  - `processNextSEOFile_V7HTML()`: V7 HTML 형식 글 생성
-  - `STEP_D2_SaveAsHTML()`: SEO 파일 → HTML 저장
-- Google Docs 스타일 출력
-  - Apple 미니멀 스타일: 절제된 색상, Noto Sans, 1.8 line-spacing
-  - 네이버 블로그 스타일: 이모지 하이라이트, 요약 박스, 친근한 마무리 멘트
-  - `addNaverStyleHighlight()`: 네이버 스타일 하이라이트 자동 적용
-- 스타일 파라미터 시스템
-  - 시트2 기반 7가지 스타일 파라미터
-    - 글톤, 문장스타일, 개인터치, 시각풍부도, 내러티브플로우, 전문성레벨, 평균문장길이
-  - 코드 수정 없이 스프레드시트에서 스타일 조정 가능
-- 콘텐츠 구조 템플릿
-  - `getSelectedTemplate()`: 제품소개형, 유튜브스크립트형 등 선택
-- 전처리
-  - HTML 본문 추출 및 태그 제거 (`analyzeHtml()`)
-  - TXT(유튜브 자막) 구어체 → 문어체 정제 (`analyzeTxtScript()`)
-  - PDF OCR 텍스트 추출
-  - 5만자 자동 제한
-- SEO 최적화
-  - 25-40자 클릭 유도 제목 자동 생성
-  - 강조키워드 볼드 자동 처리
-- 파일 관리
-  - 처리 완료 파일 이력 관리 (`recordProcessedFile()`, `isFileProcessed()`)
-  - `resetForNewPost()`: 작업 초기화
-  - `deleteProcessedSourceFiles()`: 처리 완료 원본 삭제
+## 브랜드 원칙
+- 대산은 제조사가 아니라 유통/공급 포지션으로 표현
+- 허용 표현:
+  - `대산을 통해 공급되는`
+  - `대산에서 취급하는`
+  - `대산 공식 유통`
+- 글 1편당 1~2회 수준으로만 자연 노출
 
-# 컨트롤 시트 구조
+## 콘텐츠 원칙
+- 근거 없는 수치 생성 금지
+- AI 티 방지 규칙 적용
+- material-cautions Markdown 동적 주입
+- CTA/FAQ/서명블록은 하단 고정
 
-| 셀 | 항목 | 입력 |
-|----|------|------|
-| A2 | 강조키워드 | 쉼표 구분, 최대 5개 |
-| B2 | 스타일 번호 | 시트2 기준 (1-5) |
-| C2 | SEO 키워드 | 쉼표 구분 |
-| H2 | 템플릿 | 콘텐츠 구조 선택 |
+## 핵심 프롬프트 함수
+- `createV7HTMLPrompt()`
+  - system:
+    - 브랜드 노출 원칙
+    - AI 티 방지 원칙
+    - 자재별 시공 주의사항
+    - CTA/FAQ/서명블록 고정 구조
+  - user:
+    - SEO 키워드
+    - 강조 키워드
+    - Gemini 분석 요약
+    - 템플릿/섹션 지시
 
-# 기술적 제약 사항
+## 현재 상태
+- Blogger 전용 후처리 함수 상당수 제거 완료
+- 구형 Docs/Blogger 경로 일부 보조 함수는 아직 남아 있을 수 있음
+- 현재 운영 문서 기준의 권장 경로는 `runV7HTMLPipeline()`
+- 메뉴 항목과 실제 권장 파이프라인이 완전히 일치하지 않을 수 있음
 
-- `clasp run` 사용 불가 (Execution API 제약)
-  - 실제 테스트는 Apps Script 편집기에서 직접 실행 필요
-- Claude API 속도 제한: 5분당 1개 파일 권장
-- 대용량 파일: 5만자 자동 제한
-- API 키는 모두 Properties Service 관리
-  - `CLAUDE_API_KEY`
-  - `GEMINI_API_KEY` (스타일 분석 선택 사용 — `STEP_B_geminiAnalysis()`)
+## 주요 결정사항
+- 최종 산출은 Google Docs가 아니라 HTML 파일
+- CTA는 FAQ 바로 앞
+- FAQ는 CTA 다음
+- 서명블록은 문서 맨 마지막
+- JSON/결과 출력 폴더는 Naver 전용 폴더로 분리 완료
+- `material-cautions_naver.md`는 Drive 파일 ID로 직접 로드
 
-# 주요 폴더 ID
-
-- INPUT: `1J_wn9JIilhkyfOBvxkEB1C5B0f5LzNj8`
-- JSON 출력: `1wr_0xqWOqStu7AFw3NP9RktXA-f7AR0o`
-- Docs 출력: `1u5ZSrhZPLjS4q5jTUdRP-zEdDDNaCY8W`
-- 처리 완료 원본 보관: `1KIex4c3z-g3Kvlf3DoTX-ziUDl_R8-a1`
-- 스타일 분석 전용: `1viEjA-r-o6srdtRHMU0t5gm7ucDpp6Cz`
-
-# 실행 메모
-
-- `runCompleteProcessInMemory()`: 전체 파이프라인 (메모리 기반, 파일 I/O 최소화)
-- `processNextSEOFile_V7HTML(geminiContext)`: V7 HTML 글 생성 (Gemini 컨텍스트 선택 활용)
-- `STEP_B_geminiAnalysis()`: Gemini 스타일 분석 (선택)
-- `STEP_D2_SaveAsHTML()`: SEO 결과 → HTML 저장
-- `clasp push --force`로만 코드 반영 가능
+## 새 대화 시작 시 우선 확인할 것
+1. `.clasp.json`의 `scriptId`가 Naver 프로젝트를 가리키는지
+2. `CONFIG`의 5개 폴더 ID가 맞는지
+3. 현재 메인 진입점이 `runV7HTMLPipeline()`인지
+4. `createV7HTMLPrompt()`의 고정 요소 위치 지시가 유지되는지
+5. `loadMaterialCautions_()`의 Drive 파일 ID가 유지되는지
