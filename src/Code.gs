@@ -5578,29 +5578,39 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '8. 비교테이블: 별도 <table> 중첩 (헤더:#222배경 흰글씨, 짝수행:#f9f9f9배경)\n' +
     '9. FAQ: <details><summary>❓ 질문 내용</summary><p>답변 내용</p></details> 형식으로 6개 작성, Q/A 접두사 없음\n' +
     '10. 마무리: <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지 요약 (150자 이상)<br>독자 소통 유도 문구<br>CTA (상담/문의 안내)</td></tr>\n\n' +
-    '11. CTA박스: 반드시 모든 섹션 본문이 끝난 후, FAQ 바로 앞에 삽입\n' +
+    '11. CTA박스: 모든 섹션 종료 후 반드시 <tr><td> 안에 삽입\n' +
+    '    <tr><td style="padding:20px 0;">\n' +
     '    <div style="background:#1a3a5c;color:white;padding:2em;margin:2em 0;border-radius:8px;text-align:center;">\n' +
     '    <p style="font-size:1.2em;font-weight:500;color:white;">지금 바로 견적 받아보세요</p>\n' +
     '    <p style="font-size:0.9em;color:rgba(255,255,255,0.85);">[자재명] 비용이 궁금하신가요?<br>대산 실시간 견적 시스템으로 30초 안에 확인하세요</p>\n' +
-    '    <a href="https://daesan.ai" style="display:inline-block;background:white;color:#1a3a5c;padding:0.7em 2em;border-radius:8px;font-weight:500;text-decoration:none;">견적 받기 →</a></div>\n' +
-    '12. FAQ: CTA박스 다음에 6개 스키마 형식으로 작성\n' +
+    '    <a href="https://daesan.ai" style="display:inline-block;background:white;color:#1a3a5c;padding:0.7em 2em;border-radius:8px;font-weight:500;text-decoration:none;">견적 받기 →</a>\n' +
+    '    </div></td></tr>\n\n' +
+    '12. FAQ 제목 + 내용: CTA 다음에 반드시 <tr><td> 안에 삽입\n' +
+    '    <tr><td style="font-size:22px;font-weight:bold;padding:40px 0 15px 0;">자주 묻는 질문</td></tr>\n' +
+    '    <tr><td>\n' +
     '    <div itemscope itemtype="https://schema.org/FAQPage">\n' +
-    '    <div itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">\n' +
-    '    <h3 itemprop="name">질문</h3>\n' +
+    '    <div itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" style="margin:0 0 1.1em;padding:1rem 1.2rem;background:#f7f9fc;border:1px solid #d9e3ee;border-radius:8px;">\n' +
+    '    <h3 itemprop="name" style="font-size:1.05em;margin:0 0 0.55em;color:#2c5f8a;font-weight:500;">질문</h3>\n' +
     '    <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">\n' +
-    '    <p itemprop="text">답변</p></div></div></div>\n' +
-    '    Q/A 접두사 없음\n' +
-    '13. 서명블록: 마무리 다음, 문서 맨 마지막에 삽입\n' +
-    '    <div style="border-top:1px solid #ddd;margin-top:3em;padding-top:1.5em;color:#666;font-size:0.9em;line-height:1.8;">\n' +
+    '    <p itemprop="text" style="margin:0;color:#333;line-height:1.8;">답변</p>\n' +
+    '    </div></div></div></td></tr>\n' +
+    '    Q/A 접두사 없음, 6개 작성\n\n' +
+    '13. 마무리: FAQ 다음 <tr><td> 안에 삽입 (150자 이상 + 소통 문구 + CTA)\n' +
+    '    <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지 요약 (150자 이상)<br>독자 소통 유도 문구<br>상담/문의 안내</td></tr>\n\n' +
+    '14. 서명블록: 마무리 다음, 문서 맨 마지막 <tr><td> 안에 삽입\n' +
+    '    <tr><td style="border-top:1px solid #ddd;margin-top:3em;padding-top:1.5em;color:#666;font-size:0.9em;line-height:1.8;">\n' +
     '    <p>이 글은 <strong>(주)대산 기술팀</strong>이 직접 작성했습니다.</p>\n' +
     '    <p>30년 건축자재 전문 노하우를 바탕으로 정확한 정보만을 제공합니다.</p>\n' +
-    '    <p>공식 사이트: <a href="https://daesan.ai" style="color:#2c5f8a;text-decoration:none;">daesan.ai</a></p></div>\n\n' +
-    '</table>\n\n' +
+    '    <p>공식 사이트: <a href="https://daesan.ai" style="color:#2c5f8a;text-decoration:none;">daesan.ai</a></p>\n' +
+    '    </td></tr>\n' +
+    '    </table> ← 반드시 table 태그로 전체 닫기\n' +
     '[작성 원칙]\n' +
     '- 섹션별 사진 2개씩 배열\n' +
     '- SEO 키워드 자연스럽게 배치\n' +
     '- 글 시작은 반드시 독자와 공감하는 인삿말 100자 이상 ("안녕하세요! 이런 적 있으시죠?" 형식)\n' +
     '- 회사 실적 수치 (재주문율, 거래처 수, 경력 연수 등) 임의 생성 절대 금지\n' +
+    '- CTA/FAQ/마무리/서명블록 모두 반드시 <tr><td> 안에 포함, 절대 <table> 밖에 출력 금지\n' +
+    '- 전체 출력은 반드시 <table>로 시작해서 </table>로 끝나야 함\n' +
     '- CTA박스/서명블록 절대 문서 상단 배치 금지, 반드시 본문 섹션 종료 후 배치\n' +
     '- HTML 코드만 출력, 설명 절대 금지';
 
