@@ -3416,7 +3416,7 @@ const IMAGE_PARENT_FOLDER_ID = '1-QkVAQf8O5vSV4ndaXEHAD1soKmhQj5t';
 
 function getRecentGeneratedSeoFile_(startTime) {
   try {
-    var recentSeoFolderId = '1wr_0xqWOqStu7AFw3NP9RktXA-f7AR0o';
+    var recentSeoFolderId = CONFIG.JSON_OUTPUT_FOLDER_ID;
     Logger.log('🔎 getRecentGeneratedSeoFile_ 탐색 시작');
     Logger.log('📁 탐색 폴더 ID: ' + recentSeoFolderId);
     Logger.log('🧩 파일명 패턴: /\\_final\\_seo\\.json$/i');
