@@ -6956,19 +6956,19 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '8. 비교테이블: 별도 <table> 중첩 (헤더:#222배경 흰글씨, 짝수행:#f9f9f9배경)\n' +
     '9. FAQ: <details><summary>❓ 질문 내용</summary><p>답변 내용</p></details> 형식으로 6개 작성, Q/A 접두사 없음\n' +
     '10. 마무리: <tr><td style="padding:30px 0;text-align:center;"><b>마무리 질문</b><br>핵심메시지 요약 (150자 이상)<br>독자 소통 유도 문구<br>CTA (상담/문의 안내)</td></tr>\n\n' +
-    '11. CTA박스: 본문 중간(3번째 섹션 직후)에 반드시 삽입\n' +
+    '11. CTA박스: 반드시 모든 섹션 본문이 끝난 후, FAQ 바로 앞에 삽입\n' +
     '    <div style="background:#1a3a5c;color:white;padding:2em;margin:2em 0;border-radius:8px;text-align:center;">\n' +
     '    <p style="font-size:1.2em;font-weight:500;color:white;">지금 바로 견적 받아보세요</p>\n' +
     '    <p style="font-size:0.9em;color:rgba(255,255,255,0.85);">[자재명] 비용이 궁금하신가요?<br>대산 실시간 견적 시스템으로 30초 안에 확인하세요</p>\n' +
     '    <a href="https://daesan.ai" style="display:inline-block;background:white;color:#1a3a5c;padding:0.7em 2em;border-radius:8px;font-weight:500;text-decoration:none;">견적 받기 →</a></div>\n' +
-    '12. FAQ 스키마: FAQ 6개를 아래 형식으로 작성\n' +
+    '12. FAQ: CTA박스 다음에 6개 스키마 형식으로 작성\n' +
     '    <div itemscope itemtype="https://schema.org/FAQPage">\n' +
     '    <div itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">\n' +
     '    <h3 itemprop="name">질문</h3>\n' +
     '    <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">\n' +
     '    <p itemprop="text">답변</p></div></div></div>\n' +
     '    Q/A 접두사 없음\n' +
-    '13. 서명블록: 마무리 맨 끝에 반드시 삽입\n' +
+    '13. 서명블록: 마무리 다음, 문서 맨 마지막에 삽입\n' +
     '    <div style="border-top:1px solid #ddd;margin-top:3em;padding-top:1.5em;color:#666;font-size:0.9em;line-height:1.8;">\n' +
     '    <p>이 글은 <strong>(주)대산 기술팀</strong>이 직접 작성했습니다.</p>\n' +
     '    <p>30년 건축자재 전문 노하우를 바탕으로 정확한 정보만을 제공합니다.</p>\n' +
@@ -6978,6 +6978,7 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '- 섹션별 사진 2개씩 배열\n' +
     '- SEO 키워드 자연스럽게 배치\n' +
     '- 글 시작은 반드시 독자와 공감하는 인삿말 100자 이상 ("안녕하세요! 이런 적 있으시죠?" 형식)\n' +
+    '- CTA박스/서명블록 절대 문서 상단 배치 금지, 반드시 본문 섹션 종료 후 배치\n' +
     '- HTML 코드만 출력, 설명 절대 금지';
 
   var geminiStr = '없음';
