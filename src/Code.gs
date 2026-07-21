@@ -1465,6 +1465,10 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
                '- fact_safety_check를 반드시 함께 출력하라\n' +
                '- contains_exact_price, contains_unsourced_percent, contains_unsourced_lifespan, contains_awkward_seo_phrase, comparison_sections_use_tables를 모두 boolean으로 채워라\n' +
                '- comparison_sections_use_tables는 자재/성능/용도 비교 섹션이 Markdown 테이블을 사용했는지 기준으로 판단하라\n\n' +
+               '[JSON 이스케이프 규칙 - 필수]\n' +
+               '- content 필드 등 JSON 문자열 값 내부에서 큰따옴표를 사용할 경우 반드시 \\"로 이스케이프하라\n' +
+               '- 고객 질문을 따옴표로 인용할 때도 예외 없이 \\"를 사용하라\n' +
+               '- 최종 응답은 JSON.parse가 즉시 성공하는 유효한 JSON 객체여야 한다\n\n' +
                '행동 유도:\n' +
                '- CTA 스타일: ' + (templateInfo.cta_style || '문의 유도') + '\n' +
                '- SEO 전략: ' + (templateInfo.seo_strategy || '키워드 중심');
@@ -1544,6 +1548,7 @@ function createReconstructedPromptWithTemplate(preprocessData, weights, seoKeywo
              '- 사진 플레이스홀더 누락\n\n' +
              '**출력 형식:**\n' +
              '반드시 JSON 객체 하나만 출력하세요. 마크다운 코드블록 금지.\n' +
+             'content 필드 등 JSON 문자열 내부의 큰따옴표는 고객 질문 인용을 포함해 반드시 \\" 형태로 이스케이프하세요.\n' +
              '{\n' +
              '  "content": "# [매력적인 제목 25-40자]\\n[한 줄 부제목]\\n\\n## [첫 번째 섹션 제목]\\n[내용]...\\n\\nQ. [질문]\\nA. [답변]",\n' +
              '  "content_type": {\n' +
@@ -1686,6 +1691,83 @@ function getImage1RoleMap_() {
   };
 }
 
+function sanitizeUnescapedJsonQuotes_(jsonText) {
+  var text = String(jsonText || '');
+  var result = '';
+  var inString = false;
+  var escaped = false;
+
+  for (var i = 0; i < text.length; i++) {
+    var ch = text.charAt(i);
+
+    if (!inString) {
+      result += ch;
+      if (ch === '"') inString = true;
+      continue;
+    }
+
+    if (escaped) {
+      result += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      result += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (ch !== '"') {
+      result += ch;
+      continue;
+    }
+
+    var nextIndex = i + 1;
+    while (nextIndex < text.length && /\s/.test(text.charAt(nextIndex))) nextIndex++;
+    var nextChar = nextIndex < text.length ? text.charAt(nextIndex) : '';
+    var isStructuralClosingQuote = nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === '';
+
+    if (isStructuralClosingQuote) {
+      result += ch;
+      inString = false;
+    } else {
+      result += '\\"';
+    }
+  }
+
+  return result;
+}
+
+function parseClaudeJsonWithSanitize_(cleanResponseText) {
+  try {
+    return {
+      ok: true,
+      generatedPayload: JSON.parse(cleanResponseText),
+      sanitizeApplied: false
+    };
+  } catch (firstError) {
+    var sanitizedText = sanitizeUnescapedJsonQuotes_(cleanResponseText);
+    try {
+      var sanitizedPayload = JSON.parse(sanitizedText);
+      Logger.log('⚠️ JSON sanitize 적용됨: 미이스케이프 큰따옴표 보정 후 파싱 성공');
+      return {
+        ok: true,
+        generatedPayload: sanitizedPayload,
+        sanitizeApplied: true,
+        firstParseError: firstError.message
+      };
+    } catch (secondError) {
+      return {
+        ok: false,
+        sanitizeApplied: sanitizedText !== cleanResponseText,
+        firstParseError: firstError.message,
+        secondParseError: secondError.message
+      };
+    }
+  }
+}
+
 function callClaudeJsonPayload_(apiKey, payload) {
   var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
     method: 'post',
@@ -1725,20 +1807,47 @@ function callClaudeJsonPayload_(apiKey, payload) {
   var rawResponseText = jsonResponse.content[0].text;
   var cleanResponseText = rawResponseText.replace(/```json\n?/g, '').replace(/\n?```/g, '').trim();
 
-  try {
+  var parseResult = parseClaudeJsonWithSanitize_(cleanResponseText);
+  if (parseResult.ok) {
     return {
       ok: true,
       rawResponseText: rawResponseText,
-      generatedPayload: JSON.parse(cleanResponseText)
-    };
-  } catch (parseError) {
-    return {
-      ok: false,
-      type: 'parse_error',
-      message: parseError.message,
-      rawResponseText: rawResponseText
+      generatedPayload: parseResult.generatedPayload,
+      sanitizeApplied: parseResult.sanitizeApplied
     };
   }
+
+  return {
+    ok: false,
+    type: 'parse_error',
+    message: parseResult.secondParseError || parseResult.firstParseError,
+    firstParseError: parseResult.firstParseError,
+    sanitizeApplied: parseResult.sanitizeApplied,
+    rawResponseText: rawResponseText
+  };
+}
+
+function testClaudeJsonSanitize() {
+  var brokenJson = '{"content":"안녕하세요.\\n\\n"산승각이랑 다루끼 뭐가 달라요? 둘 다 나무 각목 아닌가요?"\\n\\n"투바이 쓰라는데 산승각 써도 되나요?"\\n\\n답변 내용","content_type":{"primary":"자재비교"}}';
+  var validJson = '{"content":"\\"이미 정상적으로 이스케이프된 질문입니다?\\"","content_type":{"primary":"자재비교"}}';
+  var brokenResult = parseClaudeJsonWithSanitize_(brokenJson);
+  var validResult = parseClaudeJsonWithSanitize_(validJson);
+  var result = {
+    brokenJsonParseSuccess: brokenResult.ok,
+    brokenJsonSanitizeApplied: brokenResult.sanitizeApplied,
+    brokenJsonHasFirstQuestion: brokenResult.ok && brokenResult.generatedPayload.content.indexOf('산승각이랑 다루끼') !== -1,
+    brokenJsonHasSecondQuestion: brokenResult.ok && brokenResult.generatedPayload.content.indexOf('투바이 쓰라는데') !== -1,
+    validJsonParseSuccess: validResult.ok,
+    validJsonSanitizeApplied: validResult.sanitizeApplied
+  };
+
+  if (!result.brokenJsonParseSuccess || !result.brokenJsonSanitizeApplied ||
+      !result.brokenJsonHasFirstQuestion || !result.brokenJsonHasSecondQuestion ||
+      !result.validJsonParseSuccess || result.validJsonSanitizeApplied) {
+    throw new Error('Claude JSON sanitize 테스트 실패: ' + JSON.stringify(result));
+  }
+  Logger.log('✅ Claude JSON sanitize 테스트 성공: ' + JSON.stringify(result));
+  return result;
 }
 
 function getImagenPromptByNo_(imagenPrompts, imageNo) {
@@ -5563,6 +5672,9 @@ function createV7HTMLPrompt(preprocessData, seoKeywords, highlightKeywords, temp
     '- "시사하는 바가 크다" 등 AI 관용구 금지\n' +
     '- 연결어미 뒤 쉼표 금지 (-고, -며, -지만 뒤 쉼표 삭제)\n' +
     '- 문장 길이 균일화 금지 (단문/장문 자연스럽게 혼용)\n\n' +
+    '[JSON 이스케이프 규칙]\n' +
+    '- 추후 content 등 JSON 문자열로 감싼 결과에서 큰따옴표를 사용할 경우 반드시 \\"로 이스케이프하라\n' +
+    '- 고객 질문 인용에도 동일하게 적용하라\n\n' +
     (loadMaterialCautions_() ? '[자재별 시공 주의사항]\n' + loadMaterialCautions_() + '\n\n' : '') +
     styleInstructions + '\n' +
     templateInstructions + '\n' +
